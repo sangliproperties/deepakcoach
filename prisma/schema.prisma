@@ -27,6 +27,24 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum TestimonialStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
@@ -35,6 +53,8 @@ model User {
   phone        String?
   role         Role       @default(CUSTOMER)
   bookings     Booking[]
+  reviews      Review[]
+  notifications Notification[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
@@ -48,6 +68,7 @@ model Program {
   priceInr     Int
   active       Boolean    @default(true)
   bookings     Booking[]
+  testimonials Testimonial[]
 }
 
 model Availability {
@@ -70,6 +91,13 @@ model Booking {
   program        Program       @relation(fields: [programId], references: [id])
   availability   Availability @relation(fields: [availabilityId], references: [id])
   payment        Payment?
+  reviews        Review[]
+  notifications  Notification[]
+  cancelledAt    DateTime?
+  rescheduledFromId String?
+  rescheduleCount Int @default(0)
+  accessUrl      String?
+  accessInstructions String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -87,4 +115,56 @@ model Payment {
   booking           Booking       @relation(fields: [bookingId], references: [id])
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+}
+
+model Review {
+  id        String       @id @default(cuid())
+  bookingId String
+  userId    String
+  rating    Int
+  text      String
+  status    ReviewStatus @default(PENDING)
+  booking   Booking      @relation(fields: [bookingId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([bookingId])
+  @@index([status])
+}
+
+model Testimonial {
+  id        String            @id @default(cuid())
+  quote     String
+  name      String
+  detail    String
+  status    TestimonialStatus @default(DRAFT)
+  programId String?
+  program   Program?          @relation(fields: [programId], references: [id])
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  bookingId String?
+  type      String
+  status    NotificationStatus @default(QUEUED)
+  message   String
+  user      User               @relation(fields: [userId], references: [id])
+  booking   Booking?           @relation(fields: [bookingId], references: [id])
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model BusinessPolicy {
+  id              String   @id
+  cancellationEnabled Boolean @default(true)
+  minimumNoticeHours Int     @default(12)
+  allowReschedule Boolean  @default(true)
+  rescheduleLimit Int      @default(1)
+  updatedAt       DateTime @updatedAt
 }

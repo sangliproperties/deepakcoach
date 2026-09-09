@@ -2,14 +2,10 @@ import Link from "next/link";
 import { SectionHeading } from "@/components/section-heading";
 import { formatInr, programs } from "@/lib/catalog";
 import { youtubeSessions } from "@/lib/media";
-
-const testimonials = [
-  { quote: "The conversation helped me slow down and hear what I already knew mattered.", name: "A coaching participant", detail: "Reflection after a clarity conversation" },
-  { quote: "I left with a simple action I could actually take, rather than another overwhelming list.", name: "A growth session participant", detail: "Reflection after a focused session" },
-  { quote: "There was space to be honest, without being rushed toward a perfect answer.", name: "A program participant", detail: "Reflection after a coaching series" }
-];
+import { listTestimonials } from "@/lib/demo-store";
 
 export default function HomePage() {
+  const testimonials = listTestimonials("PUBLISHED");
   return (
     <>
       <section className="overflow-hidden bg-sand">

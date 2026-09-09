@@ -1,6 +1,17 @@
 import { createHash, randomBytes } from "node:crypto";
 import { programs } from "@/lib/catalog";
-import type { AvailabilitySlot, Booking, PaymentStatus, Role, SessionUser } from "@/lib/types";
+import type {
+  AvailabilitySlot,
+  Booking,
+  CancellationPolicy,
+  NotificationEvent,
+  PaymentStatus,
+  Review,
+  ReviewStatus,
+  Role,
+  SessionUser,
+  Testimonial
+} from "@/lib/types";
 
 type StoredUser = SessionUser & { passwordHash: string; phone?: string };
 type StoredBooking = Booking & { paymentStatus?: PaymentStatus };
@@ -12,6 +23,7 @@ type StoredPayment = {
   status: PaymentStatus;
   paymentId?: string;
 };
+type StoredReview = Review & { userId: string; bookingId: string };
 
 type Store = {
   users: Map<string, StoredUser>;
@@ -19,6 +31,11 @@ type Store = {
   availability: AvailabilitySlot[];
   bookings: Map<string, StoredBooking>;
   payments: Map<string, StoredPayment>;
+  reviews: Map<string, StoredReview>;
+  testimonials: Map<string, Testimonial>;
+  notifications: NotificationEvent[];
+  programStatus: Map<string, boolean>;
+  cancellationPolicy: CancellationPolicy;
 };
 
 const globalStore = globalThis as typeof globalThis & { __deepakCoachStore?: Store };
@@ -68,7 +85,15 @@ function getStore(): Store {
       sessions: new Map(),
       availability: seedAvailability(),
       bookings: new Map(),
-      payments: new Map()
+      payments: new Map(),
+      reviews: new Map(),
+      testimonials: new Map([
+        ["testimonial-1", { id: "testimonial-1", quote: "The conversation helped me slow down and hear what I already knew mattered.", name: "A coaching participant", detail: "Reflection after a clarity conversation", status: "PUBLISHED" }],
+        ["testimonial-2", { id: "testimonial-2", quote: "I left with a simple action I could actually take, rather than another overwhelming list.", name: "A growth session participant", detail: "Reflection after a focused session", status: "PUBLISHED" }]
+      ]),
+      notifications: [],
+      programStatus: new Map(programs.map((program) => [program.id, true])),
+      cancellationPolicy: { enabled: true, minimumHours: 12, allowReschedule: true, rescheduleLimit: 1 }
     };
   }
   return globalStore.__deepakCoachStore;
@@ -129,6 +154,54 @@ export function listAvailability() {
   return getStore().availability.map((slot) => ({ ...slot, isOpen: slot.isOpen && !booked.has(slot.id) }));
 }
 
+function notify(userId: string, type: string, message: string, bookingId?: string) {
+  const notification: NotificationEvent = {
+    id: `notification-${randomBytes(8).toString("hex")}`,
+    userId,
+    bookingId,
+    type,
+    status: process.env.NEXT_PUBLIC_DEMO_MODE === "false" ? "QUEUED" : "SENT",
+    message,
+    createdAt: new Date().toISOString()
+  };
+  getStore().notifications.unshift(notification);
+  return notification;
+}
+
+export function listNotifications(userId?: string) {
+  return getStore().notifications.filter((item) => !userId || item.userId === userId);
+}
+
+export function getCancellationPolicy() {
+  return { ...getStore().cancellationPolicy };
+}
+
+export function updateCancellationPolicy(input: Partial<CancellationPolicy>) {
+  const store = getStore();
+  const defined = Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)) as Partial<CancellationPolicy>;
+  store.cancellationPolicy = { ...store.cancellationPolicy, ...defined };
+  return getCancellationPolicy();
+}
+
+export function listUsers() {
+  return Array.from(getStore().users.values()).map(publicUser);
+}
+
+export function listPayments() {
+  return Array.from(getStore().payments.values()).sort((a, b) => b.id.localeCompare(a.id));
+}
+
+export function listPrograms() {
+  const store = getStore();
+  return programs.map((program) => ({ ...program, active: store.programStatus.get(program.id) !== false }));
+}
+
+export function setProgramActive(programId: string, active: boolean) {
+  if (!programs.some((program) => program.id === programId)) return null;
+  getStore().programStatus.set(programId, active);
+  return listPrograms().find((program) => program.id === programId);
+}
+
 export function addAvailability(startsAt: string, durationMins: number) {
   const start = new Date(startsAt);
   const end = new Date(start.getTime() + durationMins * 60_000);
@@ -155,7 +228,7 @@ export function removeAvailability(id: string) {
 
 export function createBooking(input: { userId: string; programId: string; availabilityId: string }) {
   const store = getStore();
-  const program = programs.find((item) => item.id === input.programId);
+  const program = programs.find((item) => item.id === input.programId && getStore().programStatus.get(item.id) !== false);
   const slot = store.availability.find((item) => item.id === input.availabilityId);
   if (!program || !slot || !slot.isOpen || new Date(slot.startsAt) <= new Date()) return { error: "SLOT_UNAVAILABLE" as const };
   const claimed = Array.from(store.bookings.values()).some(
@@ -173,9 +246,11 @@ export function createBooking(input: { userId: string; programId: string; availa
     availabilityId: input.availabilityId,
     status: program.priceInr === 0 ? "CONFIRMED" : "PENDING",
     paymentStatus: program.priceInr === 0 ? undefined : "CREATED",
+    rescheduleCount: 0,
     createdAt: new Date().toISOString()
   };
   store.bookings.set(id, booking);
+  notify(input.userId, "BOOKING_CREATED", `Booking ${booking.reference} was created and is ${booking.status.toLowerCase()}.`, id);
   if (program.priceInr > 0) {
     const payment: StoredPayment = {
       id: `payment-${randomBytes(8).toString("hex")}`,
@@ -217,7 +292,114 @@ export function markPayment(bookingId: string, status: PaymentStatus, paymentId?
   booking.paymentStatus = status;
   if (status === "PAID") booking.status = "CONFIRMED";
   if (status === "FAILED" || status === "CANCELLED") booking.status = status === "FAILED" ? "FAILED" : "CANCELLED";
+  notify(booking.userId, `PAYMENT_${status}`, `Payment for booking ${booking.reference} is ${status.toLowerCase()}.`, booking.id);
   return { payment, booking };
+}
+
+export function listReviews(status?: ReviewStatus) {
+  return Array.from(getStore().reviews.values())
+    .filter((review) => !status || review.status === status)
+    .map((review) => {
+      const user = getStore().users.get(review.userId);
+      const booking = getStore().bookings.get(review.bookingId);
+      const program = booking ? programs.find((item) => item.id === booking.programId) : undefined;
+      return { ...review, userName: user?.name, programTitle: program?.title };
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function submitReview(input: { userId: string; bookingId: string; rating: number; text: string }) {
+  const booking = getStore().bookings.get(input.bookingId);
+  if (!booking || booking.userId !== input.userId || booking.status !== "CONFIRMED") return { error: "BOOKING_NOT_ELIGIBLE" as const };
+  if (Array.from(getStore().reviews.values()).some((review) => review.bookingId === input.bookingId)) return { error: "REVIEW_EXISTS" as const };
+  const review: StoredReview = {
+    id: `review-${randomBytes(8).toString("hex")}`,
+    bookingId: input.bookingId,
+    userId: input.userId,
+    rating: input.rating,
+    text: input.text.trim(),
+    status: "PENDING",
+    createdAt: new Date().toISOString()
+  };
+  getStore().reviews.set(review.id, review);
+  notify(input.userId, "REVIEW_SUBMITTED", "Your review was submitted for moderation.", input.bookingId);
+  return { review };
+}
+
+export function moderateReview(id: string, status: "APPROVED" | "REJECTED") {
+  const review = getStore().reviews.get(id);
+  if (!review) return null;
+  review.status = status;
+  return review;
+}
+
+export function listTestimonials(status?: Testimonial["status"]) {
+  return Array.from(getStore().testimonials.values()).filter((item) => !status || item.status === status);
+}
+
+export function moderateTestimonial(id: string, status: Testimonial["status"]) {
+  const testimonial = getStore().testimonials.get(id);
+  if (!testimonial) return null;
+  testimonial.status = status;
+  return testimonial;
+}
+
+export function updateUserRole(id: string, role: Role) {
+  const user = getStore().users.get(id);
+  if (!user) return null;
+  user.role = role;
+  return publicUser(user);
+}
+
+export function cancelBooking(id: string, userId: string, isAdmin = false) {
+  const store = getStore();
+  const booking = store.bookings.get(id);
+  if (!booking || (!isAdmin && booking.userId !== userId)) return { error: "NOT_FOUND" as const };
+  if (booking.status === "CANCELLED") return { booking };
+  const startsAt = store.availability.find((slot) => slot.id === booking.availabilityId)?.startsAt;
+  const hoursUntil = startsAt ? (new Date(startsAt).getTime() - Date.now()) / 3_600_000 : 0;
+  if (!isAdmin && (!store.cancellationPolicy.enabled || hoursUntil < store.cancellationPolicy.minimumHours)) return { error: "CANCELLATION_WINDOW_CLOSED" as const };
+  booking.status = "CANCELLED";
+  booking.cancelledAt = new Date().toISOString();
+  const payment = store.payments.get(id);
+  if (payment && payment.status !== "PAID") {
+    payment.status = "CANCELLED";
+    booking.paymentStatus = "CANCELLED";
+  }
+  notify(booking.userId, "BOOKING_CANCELLED", `Booking ${booking.reference} was cancelled.`, booking.id);
+  return { booking };
+}
+
+export function rescheduleBooking(id: string, userId: string, availabilityId: string, isAdmin = false) {
+  const store = getStore();
+  const booking = store.bookings.get(id);
+  const slot = store.availability.find((item) => item.id === availabilityId);
+  if (!booking || (!isAdmin && booking.userId !== userId) || !slot || !slot.isOpen) return { error: "INVALID_RESCHEDULE" as const };
+  if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") return { error: "INVALID_RESCHEDULE" as const };
+  if (!isAdmin && (!store.cancellationPolicy.allowReschedule || (booking.rescheduleCount || 0) >= store.cancellationPolicy.rescheduleLimit)) return { error: "RESCHEDULE_LIMIT_REACHED" as const };
+  const occupied = Array.from(store.bookings.values()).some((item) => item.id !== id && item.availabilityId === availabilityId && ["PENDING", "CONFIRMED"].includes(item.status));
+  if (occupied) return { error: "SLOT_ALREADY_BOOKED" as const };
+  const previous = booking.availabilityId;
+  booking.availabilityId = availabilityId;
+  booking.rescheduledFrom = previous;
+  booking.rescheduleCount = (booking.rescheduleCount || 0) + 1;
+  notify(booking.userId, "BOOKING_RESCHEDULED", `Booking ${booking.reference} was moved to a new time.`, booking.id);
+  return { booking };
+}
+
+export function getBookingAccess(id: string) {
+  const booking = getStore().bookings.get(id);
+  if (!booking) return null;
+  const slot = getStore().availability.find((item) => item.id === booking.availabilityId);
+  const program = programs.find((item) => item.id === booking.programId);
+  return {
+    ...booking,
+    startsAt: slot?.startsAt,
+    endsAt: slot?.endsAt,
+    programTitle: program?.title,
+    accessUrl: booking.status === "CONFIRMED" ? "https://meet.google.com/demo-coaching-room" : undefined,
+    accessInstructions: booking.status === "CONFIRMED" ? "Join five minutes early from a quiet place. Meeting access is provided for this booking only." : undefined
+  };
 }
 
 export function getDemoCredentials() {

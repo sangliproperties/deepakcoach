@@ -40,4 +40,48 @@ export type Booking = {
   status: BookingStatus;
   paymentStatus?: PaymentStatus;
   createdAt: string;
+  cancelledAt?: string;
+  rescheduledFrom?: string;
+  rescheduleCount?: number;
+  accessUrl?: string;
+  accessInstructions?: string;
+};
+
+export type ReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type Review = {
+  id: string;
+  bookingId: string;
+  userId: string;
+  rating: number;
+  text: string;
+  status: ReviewStatus;
+  createdAt: string;
+  userName?: string;
+  programTitle?: string;
+};
+
+export type Testimonial = {
+  id: string;
+  quote: string;
+  name: string;
+  detail: string;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+};
+
+export type NotificationStatus = "QUEUED" | "SENT" | "FAILED";
+export type NotificationEvent = {
+  id: string;
+  userId: string;
+  bookingId?: string;
+  type: string;
+  status: NotificationStatus;
+  message: string;
+  createdAt: string;
+};
+
+export type CancellationPolicy = {
+  enabled: boolean;
+  minimumHours: number;
+  allowReschedule: boolean;
+  rescheduleLimit: number;
 };
