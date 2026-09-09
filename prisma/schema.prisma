@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  FAILED
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  phone        String?
+  role         Role       @default(CUSTOMER)
+  bookings     Booking[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Program {
+  id           String     @id
+  slug         String     @unique
+  title        String
+  description  String
+  durationMins Int
+  priceInr     Int
+  active       Boolean    @default(true)
+  bookings     Booking[]
+}
+
+model Availability {
+  id        String    @id @default(cuid())
+  startsAt  DateTime
+  endsAt    DateTime
+  isOpen    Boolean   @default(true)
+  bookings  Booking[]
+  createdAt DateTime  @default(now())
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  reference      String        @unique
+  userId         String
+  programId      String
+  availabilityId String
+  status         BookingStatus @default(PENDING)
+  user           User          @relation(fields: [userId], references: [id])
+  program        Program       @relation(fields: [programId], references: [id])
+  availability   Availability @relation(fields: [availabilityId], references: [id])
+  payment        Payment?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([availabilityId, status])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  bookingId         String        @unique
+  provider          String
+  providerOrderId   String?
+  providerPaymentId String?
+  amountInr         Int
+  status            PaymentStatus @default(CREATED)
+  booking           Booking       @relation(fields: [bookingId], references: [id])
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
