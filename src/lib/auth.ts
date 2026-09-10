@@ -9,9 +9,9 @@ export function getCurrentUser(): SessionUser | null {
   return sessionUser(cookies().get(SESSION_COOKIE)?.value);
 }
 
-export function requireUser(role?: Role) {
+export function requireUser(role?: Role, nextPath = "/book") {
   const user = getCurrentUser();
-  if (!user) redirect("/auth?next=/book");
+  if (!user) redirect(`/auth?next=${encodeURIComponent(nextPath)}`);
   if (role && !roleIsAllowed(user, role)) redirect("/?error=unauthorized");
   return user;
 }

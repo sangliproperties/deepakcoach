@@ -37,11 +37,15 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               {user ? (
                 <>
                   {user.role === "ADMIN" && <Link href="/admin" className="button-secondary hidden sm:inline-flex">Admin</Link>}
+                  {user.role === "COACH" && <Link href="/coach" className="button-secondary hidden sm:inline-flex">Coach</Link>}
                   <Link href="/account" className="hidden text-sm font-semibold text-moss sm:inline-flex">Account</Link>
                   <Link href="/book" className="button-primary">Book a session</Link>
                 </>
               ) : (
-                <Link href="/auth" className="button-primary">Get started</Link>
+                <>
+                  <Link href="/auth" className="button-secondary">Login</Link>
+                  <Link href="/auth?mode=register" className="button-primary">Get started</Link>
+                </>
               )}
             </div>
           </div>

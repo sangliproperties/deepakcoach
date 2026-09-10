@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { formatInr, programs } from "@/lib/catalog";
-import type { AvailabilitySlot } from "@/lib/types";
+import { formatInr } from "@/lib/catalog";
+import type { AvailabilitySlot, Program } from "@/lib/types";
 
 type BookingResponse = { booking?: { id: string; reference: string; status: string; paymentStatus?: string }; error?: string; payment?: { orderId: string; amountInr: number } };
 
@@ -20,11 +20,12 @@ export default function BookPage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [booking, setBooking] = useState<BookingResponse["booking"]>();
-  const program = useMemo(() => programs.find((item) => item.id === programId) || programs[0], [programId]);
+  const program = useMemo(() => programs.find((item) => item.id === programId) || programs[0], [programId, programs]);
 
   useEffect(() => {
-    fetch("/api/availability").then((response) => response.json()).then((data) => setSlots(data.availability || [])).catch(() => setError("Availability could not be loaded. Please refresh."));
+    Promise.all([fetch("/api/availability").then((response) => response.json()), fetch("/api/programs").then((response) => response.json())]).then(([availability, catalog]) => { setSlots(availability.availability || []); setPrograms(catalog.programs || []); }).catch(() => setError("Booking options could not be loaded. Please refresh."));
   }, []);
 
   async function reserve() {
@@ -61,6 +62,7 @@ export default function BookPage() {
     setStatus("confirmed");
   }
 
+  if (!program) return <div className="mx-auto max-w-3xl px-5 py-20 lg:px-8"><p className="card">Loading programs…</p></div>;
   if (status === "confirmed" && booking) {
     return <div className="mx-auto max-w-3xl px-5 py-20 lg:px-8"><div className="rounded-[2rem] bg-mist p-8 text-center sm:p-14"><span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-moss text-2xl text-white">✓</span><p className="eyebrow mt-7">Booking confirmed</p><h1 className="mt-3 font-display text-4xl">Your next step is on the calendar.</h1><p className="mt-4 text-ink/70">Keep this reference for your records:</p><p className="mt-3 font-mono text-xl font-semibold text-moss">{booking.reference}</p><p className="mt-6 text-sm leading-6 text-ink/60">In a configured environment, meeting details and a confirmation notification are sent after the booking is confirmed.</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/" className="button-primary">Return home</Link><Link href="/book" className="button-secondary">Book another session</Link></div></div></div>;
   }
@@ -72,7 +74,7 @@ export default function BookPage() {
         <div className="card h-fit">
           <label className="block text-sm font-semibold" htmlFor="program">Offering</label>
           <select id="program" value={programId} onChange={(event) => { setProgramId(event.target.value); setBooking(undefined); }} className="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3">
-            {programs.filter((item) => item.id === "clarity-call" || item.id === "focused-growth").map((item) => <option key={item.id} value={item.id}>{item.title} · {formatInr(item.priceInr)}</option>)}
+            {programs.map((item) => <option key={item.id} value={item.id}>{item.title} · {formatInr(item.priceInr)}</option>)}
           </select>
           <div className="mt-6 rounded-2xl bg-sand p-5"><p className="font-display text-2xl">{program.title}</p><p className="mt-2 text-sm leading-6 text-ink/65">{program.tagline}</p><p className="mt-4 text-sm font-semibold">{program.durationMins} minutes · {formatInr(program.priceInr)}</p></div>
           <p className="mt-5 text-xs leading-5 text-ink/55">Your selected slot is held when the server accepts the booking request. A slot cannot be claimed twice.</p>

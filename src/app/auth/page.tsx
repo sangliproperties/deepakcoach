@@ -9,7 +9,8 @@ type Mode = "login" | "register" | "recover";
 export default function AuthPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/book";
+  const requestedNext = searchParams.get("next");
+  const next = requestedNext?.startsWith("/") && !requestedNext.startsWith("//") ? requestedNext : null;
   const [mode, setMode] = useState<Mode>("login");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -33,7 +34,7 @@ export default function AuthPage() {
       setMessage(data.message);
       return;
     }
-    router.push(next);
+    router.push(next || (data.user.role === "ADMIN" ? "/admin" : data.user.role === "COACH" ? "/coach" : "/book"));
     router.refresh();
   }
 

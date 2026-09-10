@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { SectionHeading } from "@/components/section-heading";
-import { formatInr, programs } from "@/lib/catalog";
-import { youtubeSessions } from "@/lib/media";
-import { listTestimonials } from "@/lib/demo-store";
+import { formatInr } from "@/lib/catalog";
+import { listPublicPrograms, listTestimonials, listYoutubeSessions } from "@/lib/demo-store";
 
 export default function HomePage() {
   const testimonials = listTestimonials("PUBLISHED");
+  const youtubeSessions = listYoutubeSessions();
+  const programs = listPublicPrograms();
   return (
     <>
       <section className="overflow-hidden bg-sand">
@@ -95,7 +96,7 @@ export default function HomePage() {
             Explore selected YouTube sessions about clarity, personal growth, and purposeful action. Start with a few minutes of reflection, then decide what deserves a deeper conversation.
           </SectionHeading>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {youtubeSessions.map((session) => <article key={session.title} className="rounded-3xl border border-ink/10 p-6"><div className="flex h-32 items-center justify-center rounded-2xl bg-moss text-3xl text-white">▶</div><p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-moss">{session.category}</p><h3 className="mt-3 font-display text-2xl">{session.title}</h3><p className="mt-3 text-sm leading-6 text-ink/65">{session.description}</p></article>)}
+            {youtubeSessions.map((session) => <article key={session.id} className="rounded-3xl border border-ink/10 p-6"><div className="flex h-32 items-center justify-center rounded-2xl bg-moss text-3xl text-white">▶</div><p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-moss">{session.category}</p><h3 className="mt-3 font-display text-2xl">{session.title}</h3><p className="mt-3 text-sm leading-6 text-ink/65">{session.description}</p></article>)}
           </div>
           <div className="mt-8 text-center"><Link href="/sessions" className="button-secondary">Explore all YouTube sessions</Link></div>
         </div>

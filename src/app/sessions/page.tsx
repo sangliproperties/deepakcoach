@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { youtubeChannelUrl, youtubeSessions } from "@/lib/media";
+import { youtubeChannelUrl } from "@/lib/media";
+import { listYoutubeSessions } from "@/lib/demo-store";
 
 export default function SessionsPage() {
+  const youtubeSessions = listYoutubeSessions();
   return (
     <div className="mx-auto max-w-6xl px-5 py-16 lg:px-8 lg:py-24">
       <div className="max-w-3xl">

@@ -1,4 +1,4 @@
-export type Role = "CUSTOMER" | "ADMIN";
+export type Role = "CUSTOMER" | "COACH" | "ADMIN";
 export type BookingStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "FAILED";
 export type PaymentStatus = "CREATED" | "PENDING" | "PAID" | "FAILED" | "CANCELLED";
 
@@ -29,6 +29,15 @@ export type SessionUser = {
   email: string;
   name: string;
   role: Role;
+};
+
+export type YouTubeSession = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  duration: string;
+  videoId?: string;
 };
 
 export type Booking = {
@@ -84,4 +93,13 @@ export type CancellationPolicy = {
   minimumHours: number;
   allowReschedule: boolean;
   rescheduleLimit: number;
+};
+
+export type AuditLog = {
+  id: string;
+  actorId: string;
+  action: string;
+  entity: string;
+  entityId?: string;
+  createdAt: string;
 };

@@ -65,10 +65,12 @@ Stop it with `Ctrl+C`.
 | Role | Email | Password |
 | --- | --- | --- |
 | Customer | `hello@example.com` | `Demo@123` |
+| Coach | `coach@deepakcoach.local` | `Coach@123` |
 | Administrator | `admin@deepakcoach.local` | `Admin@123` |
 
-Use the customer account to test booking. Use the administrator account to
-manage availability and inspect bookings at `/admin`.
+Use the customer account to test booking. Use the coach account to view the schedule at `/coach`. Use the administrator
+account to manage availability, roles, content, and inspect bookings at
+`/admin`.
 
 ## Main routes
 
@@ -81,6 +83,7 @@ manage availability and inspect bookings at `/admin`.
 | `/book` | Availability and booking |
 | `/account` | Customer account |
 | `/admin` | Administrator console |
+| `/coach` | Coach schedule and booking workspace |
 | `/contact` | Enquiry and contact page |
 
 ## Payment demo flow

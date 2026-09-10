@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { programs } from "@/lib/catalog";
+import { youtubeSessions } from "@/lib/media";
 import type {
   AvailabilitySlot,
   Booking,
@@ -10,7 +11,10 @@ import type {
   ReviewStatus,
   Role,
   SessionUser,
-  Testimonial
+  Testimonial,
+  YouTubeSession,
+  AuditLog
+  ,Program
 } from "@/lib/types";
 
 type StoredUser = SessionUser & { passwordHash: string; phone?: string };
@@ -33,8 +37,11 @@ type Store = {
   payments: Map<string, StoredPayment>;
   reviews: Map<string, StoredReview>;
   testimonials: Map<string, Testimonial>;
+  youtubeSessions: Map<string, YouTubeSession>;
+  auditLogs: AuditLog[];
   notifications: NotificationEvent[];
   programStatus: Map<string, boolean>;
+  programs: Map<string, Program>;
   cancellationPolicy: CancellationPolicy;
 };
 
@@ -77,10 +84,18 @@ function getStore(): Store {
       role: "CUSTOMER",
       passwordHash: passwordHash("Demo@123")
     };
+    const coach: StoredUser = {
+      id: "demo-coach",
+      email: "coach@deepakcoach.local",
+      name: "Demo Coach",
+      role: "COACH",
+      passwordHash: passwordHash("Coach@123")
+    };
     globalStore.__deepakCoachStore = {
       users: new Map([
         [admin.id, admin],
-        [customer.id, customer]
+        [customer.id, customer],
+        [coach.id, coach]
       ]),
       sessions: new Map(),
       availability: seedAvailability(),
@@ -91,8 +106,11 @@ function getStore(): Store {
         ["testimonial-1", { id: "testimonial-1", quote: "The conversation helped me slow down and hear what I already knew mattered.", name: "A coaching participant", detail: "Reflection after a clarity conversation", status: "PUBLISHED" }],
         ["testimonial-2", { id: "testimonial-2", quote: "I left with a simple action I could actually take, rather than another overwhelming list.", name: "A growth session participant", detail: "Reflection after a focused session", status: "PUBLISHED" }]
       ]),
+      youtubeSessions: new Map(youtubeSessions.map((session) => [session.id, session])),
+      auditLogs: [],
       notifications: [],
       programStatus: new Map(programs.map((program) => [program.id, true])),
+      programs: new Map(programs.map((program) => [program.id, program])),
       cancellationPolicy: { enabled: true, minimumHours: 12, allowReschedule: true, rescheduleLimit: 1 }
     };
   }
@@ -193,13 +211,32 @@ export function listPayments() {
 
 export function listPrograms() {
   const store = getStore();
-  return programs.map((program) => ({ ...program, active: store.programStatus.get(program.id) !== false }));
+  return Array.from(store.programs.values()).map((program) => ({ ...program, active: store.programStatus.get(program.id) !== false }));
 }
 
 export function setProgramActive(programId: string, active: boolean) {
-  if (!programs.some((program) => program.id === programId)) return null;
+  if (!getStore().programs.has(programId)) return null;
   getStore().programStatus.set(programId, active);
   return listPrograms().find((program) => program.id === programId);
+}
+
+export function listPublicPrograms() {
+  return listPrograms().filter((program) => program.active);
+}
+
+export function getStoredProgram(id: string) {
+  const program = Array.from(getStore().programs.values()).find((item) => item.id === id || item.slug === id);
+  return program && getStore().programStatus.get(program.id) !== false ? program : undefined;
+}
+
+export function addProgram(actorId: string, input: Omit<Program, "id">) {
+  const id = input.slug;
+  if (getStore().programs.has(id) || Array.from(getStore().programs.values()).some((program) => program.slug === input.slug)) return null;
+  const program = { ...input, id };
+  getStore().programs.set(id, program);
+  getStore().programStatus.set(id, true);
+  recordAudit(actorId, "CREATE", "PROGRAM", id);
+  return { ...program, active: true };
 }
 
 export function addAvailability(startsAt: string, durationMins: number) {
@@ -228,7 +265,7 @@ export function removeAvailability(id: string) {
 
 export function createBooking(input: { userId: string; programId: string; availabilityId: string }) {
   const store = getStore();
-  const program = programs.find((item) => item.id === input.programId && getStore().programStatus.get(item.id) !== false);
+  const program = getStoredProgram(input.programId);
   const slot = store.availability.find((item) => item.id === input.availabilityId);
   if (!program || !slot || !slot.isOpen || new Date(slot.startsAt) <= new Date()) return { error: "SLOT_UNAVAILABLE" as const };
   const claimed = Array.from(store.bookings.values()).some(
@@ -302,7 +339,7 @@ export function listReviews(status?: ReviewStatus) {
     .map((review) => {
       const user = getStore().users.get(review.userId);
       const booking = getStore().bookings.get(review.bookingId);
-      const program = booking ? programs.find((item) => item.id === booking.programId) : undefined;
+      const program = booking ? getStore().programs.get(booking.programId) : undefined;
       return { ...review, userName: user?.name, programTitle: program?.title };
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -337,10 +374,59 @@ export function listTestimonials(status?: Testimonial["status"]) {
   return Array.from(getStore().testimonials.values()).filter((item) => !status || item.status === status);
 }
 
-export function moderateTestimonial(id: string, status: Testimonial["status"]) {
+export function listYoutubeSessions() {
+  return Array.from(getStore().youtubeSessions.values());
+}
+
+function recordAudit(actorId: string, action: string, entity: string, entityId?: string) {
+  getStore().auditLogs.unshift({ id: `audit-${randomBytes(8).toString("hex")}`, actorId, action, entity, entityId, createdAt: new Date().toISOString() });
+}
+
+export function listAuditLogs() {
+  return getStore().auditLogs.slice(0, 100).map((log) => ({ ...log, actor: getStore().users.get(log.actorId)?.email || "Unknown user" }));
+}
+
+export function addYoutubeSession(actorId: string, input: Omit<YouTubeSession, "id">) {
+  const session: YouTubeSession = { ...input, id: `youtube-session-${randomBytes(8).toString("hex")}` };
+  getStore().youtubeSessions.set(session.id, session);
+  recordAudit(actorId, "CREATE", "YOUTUBE_SESSION", session.id);
+  return session;
+}
+
+export function updateYoutubeSession(actorId: string, id: string, input: Omit<YouTubeSession, "id">) {
+  const session = getStore().youtubeSessions.get(id);
+  if (!session) return null;
+  Object.assign(session, input);
+  recordAudit(actorId, "UPDATE", "YOUTUBE_SESSION", id);
+  return session;
+}
+
+export function removeYoutubeSession(actorId: string, id: string) {
+  const removed = getStore().youtubeSessions.delete(id);
+  if (removed) recordAudit(actorId, "DELETE", "YOUTUBE_SESSION", id);
+  return removed;
+}
+
+export function addTestimonial(actorId: string, input: Omit<Testimonial, "id">) {
+  const testimonial: Testimonial = { ...input, id: `testimonial-${randomBytes(8).toString("hex")}` };
+  getStore().testimonials.set(testimonial.id, testimonial);
+  recordAudit(actorId, "CREATE", "TESTIMONIAL", testimonial.id);
+  return testimonial;
+}
+
+export function updateTestimonial(actorId: string, id: string, input: Omit<Testimonial, "id">) {
+  const testimonial = getStore().testimonials.get(id);
+  if (!testimonial) return null;
+  Object.assign(testimonial, input);
+  recordAudit(actorId, "UPDATE", "TESTIMONIAL", id);
+  return testimonial;
+}
+
+export function moderateTestimonial(actorId: string, id: string, status: Testimonial["status"]) {
   const testimonial = getStore().testimonials.get(id);
   if (!testimonial) return null;
   testimonial.status = status;
+  recordAudit(actorId, "STATUS_CHANGE", "TESTIMONIAL", id);
   return testimonial;
 }
 
@@ -391,7 +477,7 @@ export function getBookingAccess(id: string) {
   const booking = getStore().bookings.get(id);
   if (!booking) return null;
   const slot = getStore().availability.find((item) => item.id === booking.availabilityId);
-  const program = programs.find((item) => item.id === booking.programId);
+  const program = getStore().programs.get(booking.programId);
   return {
     ...booking,
     startsAt: slot?.startsAt,

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { cancelBooking, createBooking, getPaymentForBooking, listBookings, rescheduleBooking, setPaymentOrder } from "@/lib/demo-store";
-import { getProgram } from "@/lib/catalog";
+import { getStoredProgram } from "@/lib/demo-store";
 import { jsonError } from "@/lib/http";
 import { demoPaymentProvider } from "@/lib/payment";
 
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return jsonError("Choose a valid offering and time.");
   const programId = parsed.data.programId;
   const availabilityId = parsed.data.availabilityId;
-  if (!programId || !availabilityId || !getProgram(programId)) return jsonError("Choose a valid offering and time.");
+  if (!programId || !availabilityId || !getStoredProgram(programId)) return jsonError("Choose a valid offering and time.");
   const result = createBooking({ programId, availabilityId, userId: user.id });
   if ("error" in result) return jsonError(String(result.error), 409);
   const payment = getPaymentForBooking(result.booking.id);

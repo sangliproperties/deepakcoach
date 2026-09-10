@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatInr, getProgram, programs } from "@/lib/catalog";
+import { formatInr } from "@/lib/catalog";
+import { getStoredProgram, listPublicPrograms } from "@/lib/demo-store";
 
 export function generateStaticParams() {
-  return programs.map((program) => ({ slug: program.slug }));
+  return listPublicPrograms().map((program) => ({ slug: program.slug }));
 }
 
 export default function ProgramDetailPage({ params }: { params: { slug: string } }) {
-  const program = getProgram(params.slug);
+  const program = getStoredProgram(params.slug);
   if (!program) notFound();
-  const bookable = program.id === "clarity-call" || program.id === "focused-growth";
+  const bookable = true;
   return (
     <div className="mx-auto max-w-4xl px-5 py-16 lg:px-8">
       <Link href="/programs" className="text-sm font-semibold text-moss">← Back to programs</Link>
