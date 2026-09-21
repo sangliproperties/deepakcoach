@@ -40,6 +40,21 @@ enum NotificationStatus {
   FAILED
 }
 
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum PaymentEventStatus {
+  RECEIVED
+  PROCESSED
+  DUPLICATE
+  REJECTED
+  FAILED
+}
+
 enum TestimonialStatus {
   DRAFT
   PUBLISHED
@@ -47,62 +62,81 @@ enum TestimonialStatus {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  name         String
-  passwordHash String
-  phone        String?
-  role         Role       @default(CUSTOMER)
-  bookings     Booking[]
-  reviews      Review[]
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  passwordHash  String?
+  phone         String?
+  role          Role           @default(CUSTOMER)
+  isGuest       Boolean        @default(false)
+  registeredAt  DateTime?
+  sessions      Session[]
+  bookings      Booking[]
+  reviews       Review[]
   notifications Notification[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([role, createdAt])
 }
 
 model Program {
-  id           String     @id
-  slug         String     @unique
+  id           String        @id
+  slug         String        @unique
   title        String
+  tagline      String        @default("")
   description  String
   durationMins Int
   priceInr     Int
-  active       Boolean    @default(true)
+  format       String        @default("Online, one-to-one")
+  inclusions   Json          @default("[]")
+  eligibility  String        @default("")
+  expectations String        @default("")
+  active       Boolean       @default(true)
   bookings     Booking[]
   testimonials Testimonial[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  sortOrder Int @default(0)
 }
 
 model Availability {
-  id        String    @id @default(cuid())
-  startsAt  DateTime
-  endsAt    DateTime
-  isOpen    Boolean   @default(true)
-  bookings  Booking[]
-  createdAt DateTime  @default(now())
+  id            String    @id @default(cuid())
+  startsAt      DateTime
+  endsAt        DateTime
+  isOpen        Boolean   @default(true)
+  claimedAt     DateTime?
+  unavailableAt DateTime?
+  bookings      Booking[]
+  createdAt     DateTime  @default(now())
 }
 
 model Booking {
-  id             String        @id @default(cuid())
-  reference      String        @unique
-  userId         String
-  programId      String
-  availabilityId String
-  status         BookingStatus @default(PENDING)
-  user           User          @relation(fields: [userId], references: [id])
-  program        Program       @relation(fields: [programId], references: [id])
-  availability   Availability @relation(fields: [availabilityId], references: [id])
-  payment        Payment?
-  reviews        Review[]
-  notifications  Notification[]
-  cancelledAt    DateTime?
-  rescheduledFromId String?
-  rescheduleCount Int @default(0)
-  accessUrl      String?
+  id                 String         @id @default(cuid())
+  reference          String         @unique
+  userId             String
+  programId          String
+  availabilityId     String
+  status             BookingStatus  @default(PENDING)
+  user               User           @relation(fields: [userId], references: [id])
+  program            Program        @relation(fields: [programId], references: [id])
+  availability       Availability   @relation(fields: [availabilityId], references: [id])
+  payment            Payment?
+  reviews            Review[]
+  notifications      Notification[]
+  cancelledAt        DateTime?
+  rescheduledFromId  String?
+  rescheduleCount    Int            @default(0)
+  accessUrl          String?
   accessInstructions String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  rescheduledFrom    Booking?       @relation("BookingReschedule", fields: [rescheduledFromId], references: [id])
+  rescheduledTo      Booking[]      @relation("BookingReschedule")
 
   @@index([availabilityId, status])
+  @@index([userId, status, createdAt])
+  @@index([programId, status])
 }
 
 model Payment {
@@ -114,8 +148,33 @@ model Payment {
   amountInr         Int
   status            PaymentStatus @default(CREATED)
   booking           Booking       @relation(fields: [bookingId], references: [id])
+  webhookEvents     PaymentWebhookEvent[]
+  notifications     Notification[]
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+
+  @@index([provider, providerOrderId])
+  @@index([provider, providerPaymentId])
+}
+
+model PaymentWebhookEvent {
+  id              String            @id @default(cuid())
+  provider        String
+  providerEventId String
+  orderId         String?
+  providerPaymentId String?
+  eventType       String
+  status          PaymentEventStatus @default(RECEIVED)
+  outcome         String?
+  failureReason   String?
+  receivedAt      DateTime          @default(now())
+  processedAt     DateTime?
+  paymentId       String?
+  payment         Payment?          @relation(fields: [paymentId], references: [id])
+
+  @@unique([provider, providerEventId])
+  @@index([provider, orderId])
+  @@index([status, receivedAt])
 }
 
 model Review {
@@ -147,25 +206,63 @@ model Testimonial {
 }
 
 model Notification {
-  id        String             @id @default(cuid())
-  userId    String
-  bookingId String?
-  type      String
-  status    NotificationStatus @default(QUEUED)
-  message   String
-  user      User               @relation(fields: [userId], references: [id])
-  booking   Booking?           @relation(fields: [bookingId], references: [id])
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  id              String              @id @default(cuid())
+  userId          String
+  bookingId       String?
+  paymentId       String?
+  type            String
+  channel         NotificationChannel @default(IN_APP)
+  status          NotificationStatus  @default(QUEUED)
+  message         String
+  attemptCount    Int                 @default(0)
+  lastAttemptAt   DateTime?
+  failureReason   String?
+  nextRetryAt     DateTime?
+  providerMessageId String?
+  dedupeKey       String?             @unique
+  user            User                @relation(fields: [userId], references: [id])
+  booking         Booking?            @relation(fields: [bookingId], references: [id])
+  payment         Payment?            @relation(fields: [paymentId], references: [id])
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   @@index([userId, createdAt])
+  @@index([status, nextRetryAt])
+  @@index([bookingId, type])
+}
+
+model OperationalAudit {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId, createdAt])
+  @@index([actorId, createdAt])
 }
 
 model BusinessPolicy {
-  id              String   @id
-  cancellationEnabled Boolean @default(true)
-  minimumNoticeHours Int     @default(12)
-  allowReschedule Boolean  @default(true)
-  rescheduleLimit Int      @default(1)
-  updatedAt       DateTime @updatedAt
+  id                  String   @id
+  cancellationEnabled Boolean  @default(true)
+  minimumNoticeHours  Int      @default(12)
+  allowReschedule     Boolean  @default(true)
+  rescheduleLimit     Int      @default(1)
+  updatedAt           DateTime @updatedAt
+}
+
+model Session {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  userId     String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt, revokedAt])
 }

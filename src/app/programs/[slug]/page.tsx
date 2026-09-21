@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatInr } from "@/lib/catalog";
-import { getStoredProgram, listPublicPrograms } from "@/lib/demo-store";
+import { getStoredProgram, listPublicPrograms } from "@/lib/persistence";
 
-export function generateStaticParams() {
-  return listPublicPrograms().map((program) => ({ slug: program.slug }));
+export async function generateStaticParams() {
+  return (await listPublicPrograms()).map((program) => ({ slug: program.slug }));
 }
 
-export default function ProgramDetailPage({ params }: { params: { slug: string } }) {
-  const program = getStoredProgram(params.slug);
+export default async function ProgramDetailPage({ params }: { params: { slug: string } }) {
+  const program = await getStoredProgram(params.slug);
   if (!program) notFound();
   const bookable = true;
   return (

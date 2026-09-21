@@ -43,6 +43,7 @@ Copy-Item .env.example .env.local
 The default demo configuration is suitable for local development:
 
 ```text
+PERSISTENCE_MODE="demo"
 NEXT_PUBLIC_DEMO_MODE="true"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
@@ -99,32 +100,38 @@ In demo mode:
 
 The demo payment provider verifies the fixed demo signature without contacting
 Razorpay. Production payment verification must use real Razorpay credentials
-and server-side signature validation.
+and server-side signature validation. Configure `RAZORPAY_WEBHOOK_SECRET` and
+point Razorpay webhooks at `/api/payments/webhook`; webhook events, not a
+browser redirect, are the source of truth for paid booking confirmation.
 
 ## Database setup
 
-The Prisma schema is located at `prisma/schema.prisma`, with the initial
-migration in `prisma/migrations/0001_init`.
+The Prisma schema is located at `prisma/schema.prisma`; migrations are stored
+under `prisma/migrations/`.
 
-For a PostgreSQL-backed environment:
+For a PostgreSQL-backed environment, set explicit Prisma mode:
 
 1. Set `DATABASE_URL` in `.env.local`.
-2. Generate the Prisma client:
+2. Set `PERSISTENCE_MODE="prisma"`. Prisma mode never silently falls back to
+   the in-memory store and requires a usable database connection.
+3. Generate the Prisma client:
 
 ```powershell
 npx prisma generate
 ```
 
-3. Apply migrations:
+4. Apply migrations and repeatable seed data:
 
 ```powershell
 npx prisma migrate deploy
+npx prisma db seed
 ```
 
-The current demo application uses an in-memory store for local MVP flows.
-Connecting PostgreSQL requires replacing the demo-store persistence layer with
-the Prisma repositories while preserving the existing domain and provider
-boundaries.
+Seed credentials can be overridden with `SEED_ADMIN_PASSWORD`,
+`SEED_COACH_PASSWORD`, and `SEED_CUSTOMER_PASSWORD`; the example values are
+development-only. The Prisma repositories preserve the existing route
+responses, guest free-booking flow, paid authentication, secure sessions, and
+transactional slot claiming.
 
 ## Useful commands
 

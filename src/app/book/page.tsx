@@ -22,6 +22,7 @@ export default function BookPage() {
   const [busy, setBusy] = useState(false);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [booking, setBooking] = useState<BookingResponse["booking"]>();
+  const [guestDetails, setGuestDetails] = useState({ name: "", email: "", phone: "" });
   const program = useMemo(() => programs.find((item) => item.id === programId) || programs[0], [programId, programs]);
 
   useEffect(() => {
@@ -32,11 +33,19 @@ export default function BookPage() {
     setBusy(true);
     setError("");
     setStatus("");
-    const response = await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ programId, availabilityId: selectedSlot }) });
+    const response = await fetch("/api/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        programId,
+        availabilityId: selectedSlot,
+        guest: guestDetails
+      })
+    });
     const data: BookingResponse = await response.json();
     setBusy(false);
     if (response.status === 401) {
-      window.location.href = `/auth?next=/book?program=${programId}`;
+      window.location.href = `/auth?next=/book?program=${encodeURIComponent(programId)}`;
       return;
     }
     if (!response.ok) {
@@ -69,7 +78,7 @@ export default function BookPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-16 lg:px-8">
-      <div className="max-w-2xl"><p className="eyebrow">Book a conversation</p><h1 className="mt-4 font-display text-5xl">Choose a time that gives you room to think.</h1><p className="mt-5 leading-7 text-ink/70">You will need an account before reserving a slot. Free bookings confirm immediately; paid bookings remain pending until payment is verified server-side.</p></div>
+      <div className="max-w-2xl"><p className="eyebrow">Book a conversation</p><h1 className="mt-4 font-display text-5xl">Choose a time that gives you room to think.</h1><p className="mt-5 leading-7 text-ink/70">{program.priceInr === 0 ? "Anyone can book this complimentary trial session. Enter your details below and choose an available time." : "Sign in before reserving a paid session. Paid bookings remain pending until payment is verified server-side."}</p></div>
       <div className="mt-12 grid gap-8 lg:grid-cols-[0.75fr_1.25fr]">
         <div className="card h-fit">
           <label className="block text-sm font-semibold" htmlFor="program">Offering</label>
@@ -77,6 +86,15 @@ export default function BookPage() {
             {programs.map((item) => <option key={item.id} value={item.id}>{item.title} · {formatInr(item.priceInr)}</option>)}
           </select>
           <div className="mt-6 rounded-2xl bg-sand p-5"><p className="font-display text-2xl">{program.title}</p><p className="mt-2 text-sm leading-6 text-ink/65">{program.tagline}</p><p className="mt-4 text-sm font-semibold">{program.durationMins} minutes · {formatInr(program.priceInr)}</p></div>
+          {program.priceInr === 0 && <div className="mt-6 border-t border-ink/10 pt-6">
+            <p className="text-sm font-semibold text-moss">Your contact details</p>
+            <label className="mt-4 block text-sm font-semibold" htmlFor="guest-name">Full name</label>
+            <input id="guest-name" value={guestDetails.name} onChange={(event) => setGuestDetails({ ...guestDetails, name: event.target.value })} required className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" />
+            <label className="mt-4 block text-sm font-semibold" htmlFor="guest-email">Email address</label>
+            <input id="guest-email" type="email" value={guestDetails.email} onChange={(event) => setGuestDetails({ ...guestDetails, email: event.target.value })} required className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" />
+            <label className="mt-4 block text-sm font-semibold" htmlFor="guest-phone">Phone <span className="font-normal text-ink/50">(optional)</span></label>
+            <input id="guest-phone" type="tel" value={guestDetails.phone} onChange={(event) => setGuestDetails({ ...guestDetails, phone: event.target.value })} className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" />
+          </div>}
           <p className="mt-5 text-xs leading-5 text-ink/55">Your selected slot is held when the server accepts the booking request. A slot cannot be claimed twice.</p>
         </div>
         <div>

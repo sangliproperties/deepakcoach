@@ -1,6 +1,11 @@
 export type Role = "CUSTOMER" | "COACH" | "ADMIN";
 export type BookingStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "FAILED";
-export type PaymentStatus = "CREATED" | "PENDING" | "PAID" | "FAILED" | "CANCELLED";
+export type PaymentStatus =
+  | "CREATED"
+  | "PENDING"
+  | "PAID"
+  | "FAILED"
+  | "CANCELLED";
 
 export type Program = {
   id: string;
@@ -14,6 +19,7 @@ export type Program = {
   inclusions: string[];
   eligibility: string;
   expectations: string;
+  sortOrder: number;
   featured?: boolean;
 };
 
@@ -78,13 +84,20 @@ export type Testimonial = {
 };
 
 export type NotificationStatus = "QUEUED" | "SENT" | "FAILED";
+export type NotificationChannel = "IN_APP" | "EMAIL" | "WHATSAPP" | "SMS";
 export type NotificationEvent = {
   id: string;
   userId: string;
   bookingId?: string;
+  paymentId?: string;
   type: string;
+  channel: NotificationChannel;
   status: NotificationStatus;
   message: string;
+  attemptCount: number;
+  lastAttemptAt?: string;
+  failureReason?: string;
+  nextRetryAt?: string;
   createdAt: string;
 };
 

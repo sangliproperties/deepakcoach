@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { SectionHeading } from "@/components/section-heading";
 import { formatInr } from "@/lib/catalog";
-import { listPublicPrograms } from "@/lib/demo-store";
+import { listPublicPrograms } from "@/lib/persistence";
 
-export default function ProgramsPage() {
-  const programs = listPublicPrograms();
+export default async function ProgramsPage() {
+  const programs = await listPublicPrograms();
   return (
     <div className="mx-auto max-w-6xl px-5 py-16 lg:px-8">
       <SectionHeading eyebrow="Programs & sessions" title="Clear options for a meaningful conversation.">

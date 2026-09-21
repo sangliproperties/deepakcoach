@@ -1,22 +1,32 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { deleteSession, roleIsAllowed, sessionUser } from "@/lib/demo-store";
+import { deleteSession, sessionUser } from "@/lib/persistence";
 import type { Role, SessionUser } from "@/lib/types";
 
 export const SESSION_COOKIE = "deepakcoach_session";
 
-export function getCurrentUser(): SessionUser | null {
+export async function getCurrentUser(): Promise<SessionUser | null> {
   return sessionUser(cookies().get(SESSION_COOKIE)?.value);
 }
 
-export function requireUser(role?: Role, nextPath = "/book") {
-  const user = getCurrentUser();
+export async function requireUser(role?: Role, nextPath = "/book") {
+  const user = await getCurrentUser();
   if (!user) redirect(`/auth?next=${encodeURIComponent(nextPath)}`);
-  if (role && !roleIsAllowed(user, role)) redirect("/?error=unauthorized");
+  if (role && user.role !== role && !(role === "CUSTOMER" && user.role === "ADMIN")) redirect("/?error=unauthorized");
   return user;
 }
 
-export function clearCurrentSession() {
+export async function clearCurrentSession() {
   const token = cookies().get(SESSION_COOKIE)?.value;
-  if (token) deleteSession(token);
+  if (token) await deleteSession(token);
+}
+
+export function sessionCookie(token: string, maxAge = 60 * 60 * 24 * 7) {
+  const secure = process.env.NODE_ENV !== "development" ? "; Secure" : "";
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+}
+
+export function expiredSessionCookie() {
+  const secure = process.env.NODE_ENV !== "development" ? "; Secure" : "";
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
 }

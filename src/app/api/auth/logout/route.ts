@@ -1,11 +1,11 @@
 import { cookies } from "next/headers";
-import { deleteSession } from "@/lib/demo-store";
-import { SESSION_COOKIE } from "@/lib/auth";
+import { deleteSession } from "@/lib/persistence";
+import { expiredSessionCookie, SESSION_COOKIE } from "@/lib/auth";
 
 export async function POST() {
   const token = cookies().get(SESSION_COOKIE)?.value;
-  if (token) deleteSession(token);
+  if (token) await deleteSession(token);
   const response = Response.json({ ok: true });
-  response.headers.append("Set-Cookie", `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  response.headers.append("Set-Cookie", expiredSessionCookie());
   return response;
 }
