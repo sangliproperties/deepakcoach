@@ -103,3 +103,14 @@ export type AuditLog = {
   entityId?: string;
   createdAt: string;
 };
+
+export type EnquiryStatus = "NEW" | "READ";
+
+export type Enquiry = {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  status: EnquiryStatus;
+  createdAt: string;
+};

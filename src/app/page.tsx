@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { SectionHeading } from "@/components/section-heading";
 import { formatInr } from "@/lib/catalog";
-import { listPublicPrograms, listTestimonials, listYoutubeSessions } from "@/lib/demo-store";
+import { listPublicPrograms, listTestimonials } from "@/lib/demo-store";
+import { getLatestYoutubeVideos } from "@/lib/media";
 
-export default function HomePage() {
+export default async function HomePage() {
   const testimonials = listTestimonials("PUBLISHED");
-  const youtubeSessions = listYoutubeSessions();
   const programs = listPublicPrograms();
+
+  const youtubeSessions = await getLatestYoutubeVideos(3);
   return (
     <>
       <section className="overflow-hidden bg-sand">
@@ -23,10 +25,28 @@ export default function HomePage() {
           </div>
           <div className="relative mx-auto w-full max-w-md">
             <div className="absolute -inset-5 rounded-[3rem] border border-coral/25" />
-            <div className="relative rounded-[2.5rem] bg-moss p-8 text-white shadow-soft sm:p-10">
-              <span className="text-6xl font-display text-coral">“</span>
-              <p className="mt-5 font-display text-3xl leading-tight">A meaningful change often starts with a more honest question.</p>
-              <div className="mt-10 border-t border-white/20 pt-5 text-sm text-white/70">Deepak Khot · Life coach</div>
+
+            <div
+              className="relative min-h-[420px] overflow-hidden rounded-[2.5rem] bg-cover bg-center bg-no-repeat shadow-soft"
+              style={{
+                backgroundImage: "url('/deepak-khot2.jpg')",
+              }}
+            >
+              {/* Dark overlay for text readability */}
+              <div className="absolute inset-0 bg-black/30" />
+
+              {/* Quote content */}
+              <div className="relative z-10 flex min-h-[420px] flex-col justify-end px-8 pb-7 pt-44 text-white sm:px-10 sm:pb-8 sm:pt-48">
+                <span className="text-6xl font-display text-coral">“</span>
+
+                <p className="mt-5 font-display text-3xl leading-tight">
+                  A meaningful change often starts with a more honest question.
+                </p>
+
+                <div className="mt-6 border-t border-white/30 pt-4 text-sm text-white/90">
+                  Deepak Khot · Life coach
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -96,7 +116,55 @@ export default function HomePage() {
             Explore selected YouTube sessions about clarity, personal growth, and purposeful action. Start with a few minutes of reflection, then decide what deserves a deeper conversation.
           </SectionHeading>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {youtubeSessions.map((session) => <article key={session.id} className="rounded-3xl border border-ink/10 p-6"><div className="flex h-32 items-center justify-center rounded-2xl bg-moss text-3xl text-white">▶</div><p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-moss">{session.category}</p><h3 className="mt-3 font-display text-2xl">{session.title}</h3><p className="mt-3 text-sm leading-6 text-ink/65">{session.description}</p></article>)}
+            {youtubeSessions.map((video) => (
+              <article
+                key={video.videoId}
+                className="overflow-hidden rounded-3xl border border-ink/10 bg-white"
+              >
+                <iframe
+                  className="aspect-video w-full"
+                  src={`https://www.youtube.com/embed/${video.videoId}`}
+                  title={video.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+
+                <div className="p-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-moss">
+                    YouTube Session
+                  </p>
+
+                  <h3 className="mt-3 font-display text-2xl">
+                    {video.title}
+                  </h3>
+
+                  {video.description && (
+                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-ink/65">
+                      {video.description}
+                    </p>
+                  )}
+
+                  {video.publishedAt && (
+                    <p className="mt-4 text-xs text-ink/50">
+                      {new Intl.DateTimeFormat("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      }).format(new Date(video.publishedAt))}
+                    </p>
+                  )}
+
+                  <a
+                    href={`https://www.youtube.com/watch?v=${video.videoId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-5 inline-flex font-semibold text-moss underline decoration-moss/30 underline-offset-4"
+                  >
+                    Watch on YouTube ↗
+                  </a>
+                </div>
+              </article>
+            ))}
           </div>
           <div className="mt-8 text-center"><Link href="/sessions" className="button-secondary">Explore all YouTube sessions</Link></div>
         </div>

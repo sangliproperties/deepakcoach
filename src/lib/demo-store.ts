@@ -4,6 +4,7 @@ import { youtubeSessions } from "@/lib/media";
 import type {
   AvailabilitySlot,
   Booking,
+  BookingStatus,
   CancellationPolicy,
   NotificationEvent,
   PaymentStatus,
@@ -12,9 +13,10 @@ import type {
   Role,
   SessionUser,
   Testimonial,
+  Enquiry,
   YouTubeSession,
   AuditLog
-  ,Program
+  , Program
 } from "@/lib/types";
 
 type StoredUser = SessionUser & { passwordHash: string; phone?: string };
@@ -41,6 +43,7 @@ type Store = {
   auditLogs: AuditLog[];
   notifications: NotificationEvent[];
   programStatus: Map<string, boolean>;
+  enquiries: Map<string, Enquiry>;
   programs: Map<string, Program>;
   cancellationPolicy: CancellationPolicy;
 };
@@ -68,6 +71,56 @@ function seedAvailability(): AvailabilitySlot[] {
   return result;
 }
 
+function seedDemoBookings(availability: AvailabilitySlot[]): { bookings: Map<string, StoredBooking>; payments: Map<string, StoredPayment> } {
+  const bookings = new Map<string, StoredBooking>();
+  const payments = new Map<string, StoredPayment>();
+  const programsById = new Map(programs.map((program) => [program.id, program]));
+  const dayMillis = 86_400_000;
+  const slot = (day: number, index: number) => availability[day * 3 + index];
+
+  function add(input: {
+    day: number;
+    index: number;
+    suffix: string;
+    programId: string;
+    status: BookingStatus;
+    paymentStatus?: PaymentStatus;
+    createdDaysAgo: number;
+  }) {
+    const id = `booking-demo-${input.suffix}`;
+    const booking: StoredBooking = {
+      id,
+      reference: `DK-DEMO-${input.suffix.toUpperCase()}`,
+      userId: "demo-customer",
+      programId: input.programId,
+      availabilityId: slot(input.day, input.index).id,
+      status: input.status,
+      paymentStatus: input.paymentStatus,
+      rescheduleCount: 0,
+      createdAt: new Date(Date.now() - input.createdDaysAgo * dayMillis).toISOString()
+    };
+    bookings.set(id, booking);
+    const price = programsById.get(input.programId)?.priceInr || 0;
+    if (price > 0) {
+      const paymentId = `payment-demo-${input.suffix}`;
+      payments.set(paymentId, {
+        id: paymentId,
+        bookingId: id,
+        orderId: `order_demo_${input.suffix.toUpperCase()}`,
+        amountInr: price,
+        status: input.paymentStatus === "PAID" ? "PAID" : "CREATED"
+      });
+    }
+  }
+
+  add({ day: 0, index: 0, suffix: "a1", programId: "clarity-call", status: "CONFIRMED", createdDaysAgo: 2 });
+  add({ day: 1, index: 0, suffix: "b2", programId: "focused-growth", status: "PENDING", paymentStatus: "CREATED", createdDaysAgo: 0 });
+  add({ day: 2, index: 0, suffix: "c3", programId: "direction-series", status: "CONFIRMED", paymentStatus: "PAID", createdDaysAgo: 1 });
+  add({ day: 3, index: 0, suffix: "d4", programId: "clarity-call", status: "CANCELLED", createdDaysAgo: 3 });
+
+  return { bookings, payments };
+}
+
 function getStore(): Store {
   if (!globalStore.__deepakCoachStore) {
     const admin: StoredUser = {
@@ -91,6 +144,8 @@ function getStore(): Store {
       role: "COACH",
       passwordHash: passwordHash("Coach@123")
     };
+    const demoAvailability = seedAvailability();
+    const demoActivity = seedDemoBookings(demoAvailability);
     globalStore.__deepakCoachStore = {
       users: new Map([
         [admin.id, admin],
@@ -98,9 +153,9 @@ function getStore(): Store {
         [coach.id, coach]
       ]),
       sessions: new Map(),
-      availability: seedAvailability(),
-      bookings: new Map(),
-      payments: new Map(),
+      availability: demoAvailability,
+      bookings: demoActivity.bookings,
+      payments: demoActivity.payments,
       reviews: new Map(),
       testimonials: new Map([
         ["testimonial-1", { id: "testimonial-1", quote: "The conversation helped me slow down and hear what I already knew mattered.", name: "A coaching participant", detail: "Reflection after a clarity conversation", status: "PUBLISHED" }],
@@ -109,6 +164,7 @@ function getStore(): Store {
       youtubeSessions: new Map(youtubeSessions.map((session) => [session.id, session])),
       auditLogs: [],
       notifications: [],
+      enquiries: new Map(),
       programStatus: new Map(programs.map((program) => [program.id, true])),
       programs: new Map(programs.map((program) => [program.id, program])),
       cancellationPolicy: { enabled: true, minimumHours: 12, allowReschedule: true, rescheduleLimit: 1 }
@@ -494,4 +550,48 @@ export function getDemoCredentials() {
 
 export function roleIsAllowed(user: SessionUser | null, role: Role) {
   return Boolean(user && user.role === role);
+}
+
+export function createEnquiry(input: {
+  name: string;
+  email: string;
+  message: string;
+}) {
+  const enquiry: Enquiry = {
+    id: `enquiry-${randomBytes(8).toString("hex")}`,
+    name: input.name.trim(),
+    email: input.email.trim().toLowerCase(),
+    message: input.message.trim(),
+    status: "NEW",
+    createdAt: new Date().toISOString()
+  };
+
+  getStore().enquiries.set(enquiry.id, enquiry);
+
+  return enquiry;
+}
+
+export function listEnquiries() {
+  return Array.from(getStore().enquiries.values()).sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() -
+      new Date(a.createdAt).getTime()
+  );
+}
+
+export function markEnquiryRead(id: string) {
+  const enquiry = getStore().enquiries.get(id);
+
+  if (!enquiry) {
+    return null;
+  }
+
+  const updated: Enquiry = {
+    ...enquiry,
+    status: "READ"
+  };
+
+  getStore().enquiries.set(id, updated);
+
+  return updated;
 }

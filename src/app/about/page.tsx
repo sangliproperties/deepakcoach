@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { SectionHeading } from "@/components/section-heading";
 
@@ -47,6 +48,46 @@ export default function AboutPage() {
           <div className="mt-10 grid gap-5 md:grid-cols-2">
             <div className="card bg-mist/60"><p className="eyebrow">Vision</p><h3 className="mt-4 font-display text-3xl">A more intentional life, one conversation at a time.</h3><p className="mt-4 leading-7 text-ink/65">To make reflective coaching and personal development easier to understand, access, and apply in everyday life.</p></div>
             <div className="card bg-sand"><p className="eyebrow">Mission</p><h3 className="mt-4 font-display text-3xl">Turn clarity into purposeful action.</h3><p className="mt-4 leading-7 text-ink/65">To offer respectful coaching conversations that help people understand what matters, make deliberate choices, and practice meaningful change.</p></div>
+          </div>
+        </div>
+      </section>
+
+      {/* Certification Section */}
+      <section className="bg-sand">
+        <div className="mx-auto max-w-6xl px-5 py-20 lg:px-8">
+          <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+
+            {/* Certificate Information */}
+            <div>
+              <p className="eyebrow">Certification</p>
+
+              <h2 className="mt-4 font-display text-4xl leading-tight">
+                Professional learning that supports the coaching practice.
+              </h2>
+
+              <p className="mt-6 text-lg leading-8 text-ink/70">
+                Continuous learning and professional development are an
+                important part of Deepak Khot&apos;s approach to coaching.
+                This certification represents the training and learning
+                behind the practice.
+              </p>
+            </div>
+
+            {/* Certificate Image */}
+            <div className="relative">
+              <div className="absolute -inset-4 rounded-[2rem] border border-coral/25" />
+
+              <div className="relative overflow-hidden rounded-[1.5rem] bg-white p-3 shadow-soft">
+                <Image
+                  src="/deepak-khot-certificate.jpg"
+                  alt="Deepak Khot Certificate"
+                  width={1200}
+                  height={850}
+                  className="h-auto w-full rounded-xl object-contain"
+                />
+              </div>
+            </div>
+
           </div>
         </div>
       </section>

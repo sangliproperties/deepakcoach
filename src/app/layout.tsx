@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
+import HeaderSignOut from "@/components/header-sign-out";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = getCurrentUser();
+  const isAdmin = user?.role === "ADMIN";
   return (
     <html lang="en">
       <body>
@@ -26,36 +28,103 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               </span>
             </Link>
             <nav aria-label="Primary navigation" className="hidden items-center gap-6 text-sm font-medium md:flex">
-              <Link href="/about" className="hover:text-moss">About</Link>
               <Link href="/#approach" className="hover:text-moss">Approach</Link>
               <Link href="/programs" className="hover:text-moss">Programs</Link>
               <Link href="/sessions" className="hover:text-moss">Sessions</Link>
               <Link href="/#stories" className="hover:text-moss">Stories</Link>
-              <Link href="/contact" className="hover:text-moss">Contact</Link>
+              {!isAdmin && (
+                <>
+                  <Link href="/contact" className="hover:text-moss">
+                    Contact
+                  </Link>
+
+                  <Link href="/about" className="whitespace-nowrap">
+                    About
+                  </Link>
+                </>
+              )}
             </nav>
             <div className="flex items-center gap-2">
               {user ? (
                 <>
-                  {user.role === "ADMIN" && <Link href="/admin" className="button-secondary hidden sm:inline-flex">Admin</Link>}
-                  {user.role === "COACH" && <Link href="/coach" className="button-secondary hidden sm:inline-flex">Coach</Link>}
-                  <Link href="/account" className="hidden text-sm font-semibold text-moss sm:inline-flex">Account</Link>
-                  <Link href="/book" className="button-primary">Book a session</Link>
+                  {user.role === "ADMIN" && (
+                    <Link
+                      href="/admin"
+                      className="button-secondary hidden sm:inline-flex"
+                    >
+                      Admin
+                    </Link>
+                  )}
+
+                  {user.role === "COACH" && (
+                    <Link
+                      href="/coach"
+                      className="button-secondary hidden sm:inline-flex"
+                    >
+                      Coach
+                    </Link>
+                  )}
+
+                  <Link
+                    href="/account"
+                    className="hidden text-sm font-semibold text-moss sm:inline-flex"
+                  >
+                    Account
+                  </Link>
+
+                  <HeaderSignOut />
+
+                  <Link href="/book" className="button-primary">
+                    Book a session
+                  </Link>
                 </>
               ) : (
                 <>
-                  <Link href="/auth" className="button-secondary">Login</Link>
-                  <Link href="/auth?mode=register" className="button-primary">Get started</Link>
+                  <Link href="/auth" className="button-secondary">
+                    Login
+                  </Link>
+
+                  <Link
+                    href="/auth?mode=register"
+                    className="button-primary"
+                  >
+                    Get started
+                  </Link>
                 </>
               )}
             </div>
           </div>
-          <nav aria-label="Mobile navigation" className="mx-auto flex max-w-6xl gap-4 overflow-x-auto px-5 pb-3 text-sm font-medium md:hidden">
-            <Link href="/about" className="whitespace-nowrap">About</Link>
-            <Link href="/#approach" className="whitespace-nowrap">Approach</Link>
-            <Link href="/programs" className="whitespace-nowrap">Programs</Link>
-            <Link href="/sessions" className="whitespace-nowrap">Sessions</Link>
-            <Link href="/#stories" className="whitespace-nowrap">Stories</Link>
-            <Link href="/contact" className="whitespace-nowrap">Contact</Link>
+          <nav
+            aria-label="Mobile navigation"
+            className="mx-auto flex max-w-6xl gap-4 overflow-x-auto px-5 pb-3 text-sm font-medium md:hidden"
+          >
+            {!isAdmin && (
+              <Link href="/about" className="whitespace-nowrap">
+                About
+              </Link>
+            )}
+
+            <Link href="/#approach" className="whitespace-nowrap">
+              Approach
+            </Link>
+
+            <Link href="/programs" className="whitespace-nowrap">
+              Programs
+            </Link>
+
+            <Link href="/sessions" className="whitespace-nowrap">
+              Sessions
+            </Link>
+
+            <Link href="/#stories" className="whitespace-nowrap">
+              Stories
+            </Link>
+
+            {!isAdmin && (
+              <Link href="/contact" className="whitespace-nowrap">
+                Contact
+              </Link>
+            )}
           </nav>
         </header>
         <main id="main-content">{children}</main>
@@ -66,10 +135,29 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <p className="mt-1">Coaching conversations grounded in clarity, choice, and compassionate action.</p>
             </div>
             <div className="flex gap-5">
-              <Link href="/about" className="hover:text-moss">About</Link>
-              <Link href="/sessions" className="hover:text-moss">YouTube</Link>
-              <Link href="/contact" className="hover:text-moss">Enquire</Link>
-              <Link href="/auth" className="hover:text-moss">{user ? "Account" : "Sign in"}</Link>
+              {!isAdmin && (
+                <Link href="/about" className="hover:text-moss">
+                  About
+                </Link>
+              )}
+
+              <Link href="/sessions" className="hover:text-moss">
+                YouTube
+              </Link>
+
+              {!isAdmin && (
+                <Link href="/contact" className="hover:text-moss">
+                  Enquire
+                </Link>
+              )}
+
+              <Link
+                href={user ? "/account" : "/auth"}
+                className="hover:text-moss"
+              >
+                {user ? "Account" : "Sign in"}
+              </Link>
+
               <span>© {new Date().getFullYear()} Deepak Khot</span>
             </div>
           </div>

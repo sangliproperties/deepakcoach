@@ -38,6 +38,8 @@ export default function AuthPage() {
     router.refresh();
   }
 
+
+  
   return (
     <div className="mx-auto grid min-h-[70vh] max-w-5xl gap-10 px-5 py-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:px-8">
       <div>

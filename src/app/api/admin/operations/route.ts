@@ -20,6 +20,8 @@ import {
   updateYoutubeSession,
   removeYoutubeSession,
   updateTestimonial,
+  listEnquiries,
+  markEnquiryRead,
   addProgram
 } from "@/lib/demo-store";
 import { listBookings } from "@/lib/demo-store";
@@ -41,6 +43,7 @@ export async function GET() {
     testimonials: listTestimonials(),
     youtubeSessions: listYoutubeSessions(),
     auditLogs: listAuditLogs(),
+    enquiries: listEnquiries(),
     cancellationPolicy: getCancellationPolicy()
   });
 }
@@ -88,7 +91,15 @@ export async function PATCH(request: Request) {
   const admin = requireAdmin();
   if (!admin) return jsonError("Administrator access required.", 403);
   const parsed = z.object({
-    action: z.enum(["review", "testimonial", "user-role", "program", "policy", "payment-status"]),
+    action: z.enum([
+      "review",
+      "testimonial",
+      "user-role",
+      "program",
+      "policy",
+      "payment-status",
+      "enquiry-read"
+    ]),
     id: z.string().optional(),
     status: z.string().optional(),
     role: z.enum(["CUSTOMER", "COACH", "ADMIN"]).optional(),
@@ -107,6 +118,15 @@ export async function PATCH(request: Request) {
   if (data.action === "program" && data.id && typeof data.active === "boolean") return Response.json({ program: setProgramActive(data.id, data.active) });
   if (data.action === "payment-status" && data.id && data.paymentStatus) return Response.json({ payment: markPayment(data.id, data.paymentStatus) });
   if (data.action === "policy") return Response.json({ cancellationPolicy: updateCancellationPolicy({ enabled: data.enabled, minimumHours: data.minimumHours, allowReschedule: data.allowReschedule, rescheduleLimit: data.rescheduleLimit }) });
+  if (data.action === "enquiry-read" && data.id) {
+    const enquiry = markEnquiryRead(data.id);
+
+    if (!enquiry) {
+      return jsonError("Enquiry was not found.", 404);
+    }
+
+    return Response.json({ enquiry });
+  }
   return jsonError("The requested operation is invalid.");
 }
 

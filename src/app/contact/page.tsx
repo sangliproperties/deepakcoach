@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ContactForm } from "@/components/contact-form";
 
 export default function ContactPage() {
   return (
@@ -12,16 +13,7 @@ export default function ContactPage() {
           <p className="mt-2 text-ink/70">Coaching is for personal development and goal-oriented reflection. If you are in immediate distress or need clinical care, please contact an appropriate local professional or emergency service.</p>
         </div>
       </div>
-      <form className="card" action="mailto:hello@deepakcoach.example" method="post" encType="text/plain">
-        <label className="block text-sm font-semibold" htmlFor="name">Your name</label>
-        <input id="name" name="name" required className="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3" />
-        <label className="mt-5 block text-sm font-semibold" htmlFor="email">Email address</label>
-        <input id="email" name="email" type="email" required className="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3" />
-        <label className="mt-5 block text-sm font-semibold" htmlFor="message">What would you like to explore?</label>
-        <textarea id="message" name="message" required rows={6} className="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3" />
-        <button type="submit" className="button-primary mt-6">Prepare enquiry email</button>
-        <p className="mt-4 text-xs leading-5 text-ink/55">This MVP uses your email application for enquiries. A provider-backed enquiry inbox can be added without changing the public experience.</p>
-      </form>
+      <ContactForm />
       <div className="lg:col-span-2 text-center text-sm text-ink/60">Prefer to start directly? <Link href="/book?program=clarity-call" className="font-semibold text-moss underline underline-offset-4">See Clarity Call times</Link></div>
     </div>
   );
