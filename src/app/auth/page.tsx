@@ -48,7 +48,7 @@ export default function AuthPage() {
         <p className="mt-5 leading-7 text-ink/70">Register to choose a time, keep your booking reference, and receive the right next step. This demo runs in memory; production auth can use the same role boundary with a managed session provider.</p>
         <div className="mt-8 rounded-2xl bg-mist p-5 text-sm leading-6">
           <p className="font-semibold text-moss">Demo access</p>
-          <p className="mt-2 text-ink/70">Customer: hello@example.com / Demo@123</p>
+          <p className="mt-2 text-ink/70">Customer: shripad.sangliproperties@gmail.com / shripad@555</p>
           <p className="text-ink/70">Admin: admin@deepakcoach.local / Admin@123</p>
         </div>
       </div>

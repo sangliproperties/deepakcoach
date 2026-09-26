@@ -9,8 +9,12 @@ export const metadata: Metadata = {
   description: "A calm, clear coaching practice for people ready to take their next intentional step."
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const user = getCurrentUser();
+export default async function RootLayout({
+  children
+}: {
+  children: React.ReactNode;
+}) {
+  const user = await getCurrentUser();
   const isAdmin = user?.role === "ADMIN";
   return (
     <html lang="en">

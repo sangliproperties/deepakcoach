@@ -8,7 +8,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   if (!user) return jsonError("Sign in required.", 401);
   const parsed = z.object({
     bookingId: z.string().min(1),

@@ -47,38 +47,69 @@ enum TestimonialStatus {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
+  id           String  @id @default(cuid())
+  email        String  @unique
   name         String
   passwordHash String
   phone        String?
-  role         Role       @default(CUSTOMER)
-  bookings     Booking[]
-  reviews      Review[]
+  role         Role    @default(CUSTOMER)
+
+  bookings      Booking[]
+  reviews       Review[]
   notifications Notification[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  sessions      Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Program {
-  id           String     @id
-  slug         String     @unique
+  id           String   @id
+  slug         String   @unique
   title        String
+  tagline      String
   description  String
   durationMins Int
   priceInr     Int
-  active       Boolean    @default(true)
+  format       String
+  inclusions   String[]
+  eligibility  String
+  expectations String
+  featured     Boolean  @default(false)
+  active       Boolean  @default(true)
+
   bookings     Booking[]
   testimonials Testimonial[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Availability {
-  id        String    @id @default(cuid())
-  startsAt  DateTime
-  endsAt    DateTime
-  isOpen    Boolean   @default(true)
-  bookings  Booking[]
-  createdAt DateTime  @default(now())
+  id       String   @id @default(cuid())
+  startsAt DateTime
+  endsAt   DateTime
+  isOpen   Boolean  @default(true)
+
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+
+  @@index([startsAt])
 }
 
 model Booking {
@@ -88,34 +119,47 @@ model Booking {
   programId      String
   availabilityId String
   status         BookingStatus @default(PENDING)
-  user           User          @relation(fields: [userId], references: [id])
-  program        Program       @relation(fields: [programId], references: [id])
-  availability   Availability @relation(fields: [availabilityId], references: [id])
-  payment        Payment?
-  reviews        Review[]
-  notifications  Notification[]
-  cancelledAt    DateTime?
+
+  user         User         @relation(fields: [userId], references: [id])
+  program      Program      @relation(fields: [programId], references: [id])
+  availability Availability @relation(fields: [availabilityId], references: [id])
+
+  payment Payment?
+
+  // Opposite relations
+  reviews       Review[]
+  notifications Notification[]
+
+  cancelledAt       DateTime?
   rescheduledFromId String?
-  rescheduleCount Int @default(0)
-  accessUrl      String?
+  rescheduleCount   Int       @default(0)
+
+  accessUrl          String?
   accessInstructions String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([availabilityId, status])
+  @@index([userId])
+  @@index([programId])
+  @@index([createdAt])
 }
 
 model Payment {
   id                String        @id @default(cuid())
   bookingId         String        @unique
-  provider          String
   providerOrderId   String?
   providerPaymentId String?
   amountInr         Int
   status            PaymentStatus @default(CREATED)
-  booking           Booking       @relation(fields: [bookingId], references: [id])
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
 }
 
 model Review {
@@ -162,10 +206,10 @@ model Notification {
 }
 
 model BusinessPolicy {
-  id              String   @id
-  cancellationEnabled Boolean @default(true)
-  minimumNoticeHours Int     @default(12)
-  allowReschedule Boolean  @default(true)
-  rescheduleLimit Int      @default(1)
-  updatedAt       DateTime @updatedAt
+  id                  String   @id
+  cancellationEnabled Boolean  @default(true)
+  minimumNoticeHours  Int      @default(12)
+  allowReschedule     Boolean  @default(true)
+  rescheduleLimit     Int      @default(1)
+  updatedAt           DateTime @updatedAt
 }

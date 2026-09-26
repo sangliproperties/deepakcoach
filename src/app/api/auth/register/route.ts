@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createSession, createUser } from "@/lib/demo-store";
+
+import {
+  createSession,
+  createUser
+} from "@/lib/auth-store";
+
 import { SESSION_COOKIE } from "@/lib/auth";
 
 const schema = z.object({
@@ -10,11 +15,43 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const parsed = schema.safeParse(await request.json());
-  if (!parsed.success) return Response.json({ error: "Please provide a name, valid email, and password of at least 8 characters." }, { status: 400 });
-  const user = createUser(parsed.data);
-  if (!user) return Response.json({ error: "An account with that email already exists. Try signing in." }, { status: 409 });
-  const response = Response.json({ user }, { status: 201 });
-  response.headers.append("Set-Cookie", `${SESSION_COOKIE}=${createSession(user.id)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
+  const parsed = schema.safeParse(
+    await request.json()
+  );
+
+  if (!parsed.success) {
+    return Response.json(
+      {
+        error:
+          "Please provide a name, valid email, and password of at least 8 characters."
+      },
+      { status: 400 }
+    );
+  }
+
+  const user = await createUser(parsed.data);
+
+  if (!user) {
+    return Response.json(
+      {
+        error:
+          "An account with that email already exists. Try signing in."
+      },
+      { status: 409 }
+    );
+  }
+
+  const token = await createSession(user.id);
+
+  const response = Response.json(
+    { user },
+    { status: 201 }
+  );
+
+  response.headers.append(
+    "Set-Cookie",
+    `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`
+  );
+
   return response;
 }

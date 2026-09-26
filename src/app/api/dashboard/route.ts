@@ -3,7 +3,7 @@ import { getBookingAccess, listBookings, listNotifications, listReviews } from "
 import { jsonError } from "@/lib/http";
 
 export async function GET() {
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   if (!user) return jsonError("Sign in required.", 401);
   const bookings = listBookings()
     .filter((booking) => booking.userId === user.id)

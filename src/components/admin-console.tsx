@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import type {
   AvailabilitySlot,
-  Booking,
   CancellationPolicy,
   Review,
   Testimonial,
@@ -11,11 +10,59 @@ import type {
   Enquiry
 } from "@/lib/types";
 
+type AdminBooking = {
+  id: string;
+  reference: string;
+
+  status:
+  | "PENDING"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "FAILED";
+
+  createdAt: string;
+  cancelledAt: string | null;
+
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+  };
+
+  program: {
+    id: string;
+    title: string;
+    priceInr: number;
+    durationMins: number;
+  };
+
+  availability: {
+    id: string;
+    startsAt: string;
+    endsAt: string;
+  };
+
+  payment: {
+    id: string;
+    amountInr: number;
+
+    status:
+    | "CREATED"
+    | "PENDING"
+    | "PAID"
+    | "FAILED"
+    | "CANCELLED";
+
+    providerOrderId: string | null;
+    providerPaymentId: string | null;
+  } | null;
+};
+
 type Operations = {
   users: { id: string; name: string; email: string; role: string }[];
   programs: { id: string; title: string; active: boolean }[];
-  bookings: Booking[];
-  payments: { id: string; bookingId: string; amountInr: number; status: string; orderId: string }[];
+  bookings: AdminBooking[];
   reviews: Review[];
   testimonials: Testimonial[];
   youtubeSessions: YouTubeSession[];
@@ -26,6 +73,34 @@ type Operations = {
 
 function display(value: string) {
   return new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+}
+
+function displayMeetingDate(
+  value: string
+) {
+  return new Intl.DateTimeFormat(
+    "en-IN",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    }
+  ).format(new Date(value));
+}
+
+function displayBookedOn(
+  value: string
+) {
+  return new Intl.DateTimeFormat(
+    "en-IN",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    }
+  ).format(new Date(value));
 }
 
 export default function AdminConsole() {
@@ -39,13 +114,103 @@ export default function AdminConsole() {
   const [storyForm, setStoryForm] = useState({ quote: "", name: "", detail: "" });
   const [programForm, setProgramForm] = useState({ slug: "", title: "", tagline: "", description: "", durationMins: "60", priceInr: "0", format: "Online, one-to-one", inclusions: "", eligibility: "", expectations: "" });
 
-  async function load() {
-    const [availability, response] = await Promise.all([fetch("/api/availability"), fetch("/api/admin/operations")]);
-    const availabilityData = await availability.json();
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
-    setSlots(availabilityData.availability || []);
-    setOperations(data);
+  const [
+    bookingStartDate,
+    setBookingStartDate
+  ] = useState("");
+
+  const [
+    bookingEndDate,
+    setBookingEndDate
+  ] = useState("");
+
+  const [
+    bookingPaymentStatus,
+    setBookingPaymentStatus
+  ] = useState("");
+
+
+  async function load(
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+      paymentStatus?: string;
+    }
+  ) {
+    const params =
+      new URLSearchParams();
+
+    if (filters?.startDate) {
+      params.set(
+        "startDate",
+        filters.startDate
+      );
+    }
+
+    if (filters?.endDate) {
+      params.set(
+        "endDate",
+        filters.endDate
+      );
+    }
+
+    if (
+      filters?.paymentStatus &&
+      filters.paymentStatus !==
+      "NOT_REQUIRED"
+    ) {
+      params.set(
+        "paymentStatus",
+        filters.paymentStatus
+      );
+    }
+
+    const operationsUrl =
+      params.toString()
+        ? `/api/admin/operations?${params.toString()}`
+        : "/api/admin/operations";
+
+    const [availability, response] =
+      await Promise.all([
+        fetch("/api/availability"),
+        fetch(operationsUrl)
+      ]);
+
+    const availabilityData =
+      await availability.json();
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        "Could not load operations."
+      );
+    }
+
+    let bookings: AdminBooking[] =
+      data.bookings || [];
+
+    if (
+      filters?.paymentStatus ===
+      "NOT_REQUIRED"
+    ) {
+      bookings =
+        bookings.filter(
+          (booking) =>
+            booking.payment === null
+        );
+    }
+
+    setSlots(
+      availabilityData.availability || []
+    );
+
+    setOperations({
+      ...data,
+      bookings
+    });
   }
   useEffect(() => { load().catch(() => setError("Could not load the operations view.")); }, []);
 
@@ -112,7 +277,13 @@ export default function AdminConsole() {
     {section === "overview" && <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{[
       ["Users", operations.users.length],
       ["Bookings", operations.bookings.length],
-      ["Payments", operations.payments.length],
+      [
+        "Payments",
+        operations.bookings.filter(
+          (booking) =>
+            booking.payment !== null
+        ).length
+      ],
       ["Pending reviews", operations.reviews.filter(
         (review) => review.status === "PENDING"
       ).length],
@@ -151,8 +322,8 @@ export default function AdminConsole() {
               <div
                 key={enquiry.id}
                 className={`card ${enquiry.status === "NEW"
-                    ? "border-2 border-coral/40"
-                    : ""
+                  ? "border-2 border-coral/40"
+                  : ""
                   }`}
               >
                 <div className="flex flex-col justify-between gap-4 sm:flex-row">
@@ -239,7 +410,428 @@ export default function AdminConsole() {
       </div>
     </section>}
     {section === "availability" && <section className="mt-10"><div><h2 className="font-display text-3xl">Availability</h2><form onSubmit={(event) => { event.preventDefault(); addSlot(); }} className="card mt-5 max-w-md"><label htmlFor="startsAt" className="text-sm font-semibold">Add a 60-minute slot</label><input id="startsAt" type="datetime-local" required value={startsAt} onChange={(event) => setStartsAt(event.target.value)} className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" /><button className="button-primary mt-3 w-full">Add availability</button></form><div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{slots.map((slot) => <div key={slot.id} className="rounded-2xl border border-ink/10 bg-white p-4"><p className="font-semibold">{display(slot.startsAt)}</p><p className="mt-1 text-sm text-ink/55">{slot.isOpen ? "Open for booking" : "Claimed or closed"}</p><button onClick={() => removeSlot(slot.id)} className="mt-4 text-sm font-semibold text-coral underline">Remove</button></div>)}</div></div></section>}
-    {section === "bookings" && <section className="mt-10"><div><h2 className="font-display text-3xl">Bookings & payments</h2><div className="mt-5 overflow-x-auto rounded-2xl border border-ink/10 bg-white"><table className="w-full min-w-[700px] text-left text-sm"><thead className="border-b border-ink/10 bg-sand"><tr><th className="px-4 py-3">Reference</th><th className="px-4 py-3">State</th><th className="px-4 py-3">Payment</th><th className="px-4 py-3">Created</th><th className="px-4 py-3">Action</th></tr></thead><tbody>{operations.bookings.map((booking) => <tr key={booking.id} className="border-b border-ink/5 last:border-0"><td className="px-4 py-3 font-mono">{booking.reference}</td><td className="px-4 py-3 capitalize">{booking.status.toLowerCase()}</td><td className="px-4 py-3 capitalize">{booking.paymentStatus?.toLowerCase() || "not required"}</td><td className="px-4 py-3">{display(booking.createdAt)}</td><td className="px-4 py-3">{booking.status === "CANCELLED" ? <span className="text-ink/50">Closed</span> : <button onClick={async () => { await fetch("/api/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bookingId: booking.id, action: "cancel" }) }); await load(); }} className="text-coral underline">Cancel</button>}</td></tr>)}</tbody></table></div><h3 className="mt-8 font-display text-2xl">Payment records</h3><div className="mt-4 overflow-x-auto rounded-2xl border border-ink/10 bg-white"><table className="w-full min-w-[700px] text-left text-sm"><thead className="border-b border-ink/10 bg-sand"><tr><th className="px-4 py-3">Payment</th><th className="px-4 py-3">Booking</th><th className="px-4 py-3">Amount</th><th className="px-4 py-3">State</th><th className="px-4 py-3">Reconcile</th></tr></thead><tbody>{operations.payments.map((payment) => <tr key={payment.id} className="border-b border-ink/5 last:border-0"><td className="px-4 py-3 font-mono">{payment.id}</td><td className="px-4 py-3">{payment.bookingId}</td><td className="px-4 py-3">₹{payment.amountInr.toLocaleString("en-IN")}</td><td className="px-4 py-3 capitalize">{payment.status.toLowerCase()}</td><td className="px-4 py-3"><button onClick={() => operation({ action: "payment-status", id: payment.bookingId, paymentStatus: payment.status === "PAID" ? "FAILED" : "PAID" })} className="text-moss underline">{payment.status === "PAID" ? "Mark failed" : "Mark paid"}</button></td></tr>)}</tbody></table></div></div></section>}
+    {section === "bookings" && (
+      <section className="mt-10">
+        <div>
+          <h2 className="font-display text-3xl">
+            Booking & Payment Schedule
+          </h2>
+
+          <p className="mt-2 text-sm text-ink/60">
+            Customer meetings, booking details
+            and payment information.
+          </p>
+        </div>
+
+        {/* FILTERS */}
+        <div className="card mt-5 grid gap-4 md:grid-cols-4">
+          <label className="text-sm font-semibold">
+            Start Date
+
+            <input
+              type="date"
+              value={bookingStartDate}
+              onChange={(event) =>
+                setBookingStartDate(
+                  event.target.value
+                )
+              }
+              className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
+            />
+          </label>
+
+          <label className="text-sm font-semibold">
+            End Date
+
+            <input
+              type="date"
+              value={bookingEndDate}
+              onChange={(event) =>
+                setBookingEndDate(
+                  event.target.value
+                )
+              }
+              className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
+            />
+          </label>
+
+          <label className="text-sm font-semibold">
+            Payment Status
+
+            <select
+              value={bookingPaymentStatus}
+              onChange={(event) =>
+                setBookingPaymentStatus(
+                  event.target.value
+                )
+              }
+              className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
+            >
+              <option value="">
+                All payments
+              </option>
+
+              <option value="PAID">
+                Paid
+              </option>
+
+              <option value="PENDING">
+                Pending
+              </option>
+
+              <option value="CREATED">
+                Created
+              </option>
+
+              <option value="FAILED">
+                Failed
+              </option>
+
+              <option value="CANCELLED">
+                Cancelled
+              </option>
+
+              <option value="NOT_REQUIRED">
+                Not required
+              </option>
+            </select>
+          </label>
+
+          <div className="flex items-end gap-2">
+            <button
+              type="button"
+              className="button-primary flex-1"
+              onClick={() => {
+                setError("");
+
+                load({
+                  startDate:
+                    bookingStartDate,
+
+                  endDate:
+                    bookingEndDate,
+
+                  paymentStatus:
+                    bookingPaymentStatus
+                }).catch(() =>
+                  setError(
+                    "Could not filter bookings."
+                  )
+                );
+              }}
+            >
+              Apply
+            </button>
+
+            <button
+              type="button"
+              className="button-secondary flex-1"
+              onClick={() => {
+                setBookingStartDate("");
+                setBookingEndDate("");
+                setBookingPaymentStatus("");
+                setError("");
+
+                load().catch(() =>
+                  setError(
+                    "Could not reload bookings."
+                  )
+                );
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        {/* BOOKING TABLE */}
+        <div className="mt-5 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
+          <table className="w-full min-w-[1600px] text-left text-sm">
+            <thead className="border-b border-ink/10 bg-sand">
+              <tr>
+                <th className="px-4 py-3">
+                  Meeting Date & Time
+                </th>
+
+                <th className="px-4 py-3">
+                  Customer
+                </th>
+
+                <th className="px-4 py-3">
+                  Mobile
+                </th>
+
+                <th className="px-4 py-3">
+                  Email
+                </th>
+
+                <th className="px-4 py-3">
+                  Program
+                </th>
+
+                <th className="px-4 py-3">
+                  Amount
+                </th>
+
+                <th className="px-4 py-3">
+                  Payment
+                </th>
+
+                <th className="px-4 py-3">
+                  Booking Status
+                </th>
+
+                <th className="px-4 py-3">
+                  Booked On
+                </th>
+
+                <th className="px-4 py-3">
+                  Reference
+                </th>
+
+                <th className="px-4 py-3">
+                  Action
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {operations.bookings.length ===
+                0 ? (
+                <tr>
+                  <td
+                    colSpan={11}
+                    className="px-4 py-10 text-center text-ink/50"
+                  >
+                    No bookings found.
+                  </td>
+                </tr>
+              ) : (
+                operations.bookings.map(
+                  (booking) => (
+                    <tr
+                      key={booking.id}
+                      className="border-b border-ink/5 align-top last:border-0"
+                    >
+                      {/* MEETING */}
+                      <td className="px-4 py-4 font-semibold">
+                        {displayMeetingDate(
+                          booking.availability
+                            .startsAt
+                        )}
+
+                        <p className="mt-1 text-xs font-normal text-ink/50">
+                          {
+                            booking.program
+                              .durationMins
+                          }{" "}
+                          minutes
+                        </p>
+                      </td>
+
+                      {/* CUSTOMER */}
+                      <td className="px-4 py-4 font-semibold">
+                        {booking.user.name}
+                      </td>
+
+                      {/* MOBILE */}
+                      <td className="px-4 py-4">
+                        {booking.user.phone ||
+                          "Not provided"}
+                      </td>
+
+                      {/* EMAIL */}
+                      <td className="px-4 py-4">
+                        <a
+                          href={`mailto:${booking.user.email}`}
+                          className="text-moss underline underline-offset-4"
+                        >
+                          {booking.user.email}
+                        </a>
+                      </td>
+
+                      {/* PROGRAM */}
+                      <td className="px-4 py-4 font-semibold">
+                        {booking.program.title}
+                      </td>
+
+                      {/* AMOUNT */}
+                      <td className="px-4 py-4 font-semibold">
+                        ₹
+                        {(
+                          booking.payment
+                            ?.amountInr ??
+                          booking.program
+                            .priceInr
+                        ).toLocaleString(
+                          "en-IN"
+                        )}
+                      </td>
+
+                      {/* PAYMENT */}
+                      <td className="px-4 py-4">
+                        {booking.payment ? (
+                          <div className="space-y-1">
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${booking.payment
+                                  .status ===
+                                  "PAID"
+                                  ? "bg-green-100 text-green-800"
+                                  : booking
+                                    .payment
+                                    .status ===
+                                    "FAILED"
+                                    ? "bg-red-100 text-red-800"
+                                    : booking
+                                      .payment
+                                      .status ===
+                                      "CANCELLED"
+                                      ? "bg-gray-100 text-gray-700"
+                                      : "bg-amber-100 text-amber-800"
+                                }`}
+                            >
+                              {booking.payment
+                                .status ===
+                                "PAID"
+                                ? "✓ PAID"
+                                : booking.payment
+                                  .status}
+                            </span>
+
+                            <p className="text-xs text-ink/50">
+                              DB Payment ID:{" "}
+                              {booking.payment.id}
+                            </p>
+
+                            <p className="text-xs text-ink/50">
+                              Provider Order ID:{" "}
+                              {booking.payment
+                                .providerOrderId ||
+                                "—"}
+                            </p>
+
+                            <p className="text-xs text-ink/50">
+                              Provider Payment ID:{" "}
+                              {booking.payment
+                                .providerPaymentId ||
+                                "—"}
+                            </p>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="inline-flex rounded-full bg-mist px-3 py-1 text-xs font-semibold text-moss">
+                              Not required
+                            </span>
+
+                            <p className="mt-1 text-xs text-ink/50">
+                              Free program
+                            </p>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* BOOKING STATUS */}
+                      <td className="px-4 py-4">
+                        <span className="font-semibold">
+                          {booking.status}
+                        </span>
+                      </td>
+
+                      {/* BOOKED ON */}
+                      <td className="px-4 py-4">
+                        {displayBookedOn(
+                          booking.createdAt
+                        )}
+                      </td>
+
+                      {/* REFERENCE */}
+                      <td className="px-4 py-4 font-mono text-xs">
+                        {booking.reference}
+                      </td>
+
+                      {/* ACTION */}
+                      <td className="px-4 py-4">
+                        {booking.status ===
+                          "CANCELLED" ? (
+                          <span className="text-ink/50">
+                            Closed
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="font-semibold text-coral underline"
+                            onClick={async () => {
+                              setError("");
+                              setMessage("");
+
+                              const response =
+                                await fetch(
+                                  "/api/bookings",
+                                  {
+                                    method:
+                                      "PATCH",
+
+                                    headers: {
+                                      "Content-Type":
+                                        "application/json"
+                                    },
+
+                                    body:
+                                      JSON.stringify(
+                                        {
+                                          bookingId:
+                                            booking.id,
+
+                                          action:
+                                            "cancel"
+                                        }
+                                      )
+                                  }
+                                );
+
+                              const data =
+                                await response.json();
+
+                              if (
+                                !response.ok
+                              ) {
+                                setError(
+                                  data.error ||
+                                  "Booking could not be cancelled."
+                                );
+
+                                return;
+                              }
+
+                              setMessage(
+                                "Booking cancelled."
+                              );
+
+                              await load({
+                                startDate:
+                                  bookingStartDate,
+
+                                endDate:
+                                  bookingEndDate,
+
+                                paymentStatus:
+                                  bookingPaymentStatus
+                              });
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )}
     {section === "reviews" && <section className="mt-10 space-y-10"><div><h2 className="font-display text-3xl">Review moderation</h2>{operations.reviews.length === 0 ? <p className="mt-4 text-sm text-ink/60">No customer reviews yet.</p> : <div className="mt-5 space-y-3">{operations.reviews.map((review) => <div key={review.id} className="card"><div className="flex justify-between gap-4"><p className="font-semibold">{review.userName || "Customer"} · {review.rating}/5</p><span className="text-xs font-semibold uppercase text-moss">{review.status}</span></div><p className="mt-3 text-sm leading-6 text-ink/70">{review.text}</p>{review.status === "PENDING" && <div className="mt-4 flex gap-3"><button onClick={() => operation({ action: "review", id: review.id, status: "APPROVED" })} className="button-primary">Approve</button><button onClick={() => operation({ action: "review", id: review.id, status: "REJECTED" })} className="button-secondary">Reject</button></div>}</div>)}</div>}</div><div><h2 className="font-display text-3xl">Testimonials</h2><div className="mt-5 space-y-3">{operations.testimonials.map((testimonial) => <div key={testimonial.id} className="card flex flex-col justify-between gap-4 sm:flex-row"><div><p className="font-display text-xl">“{testimonial.quote}”</p><p className="mt-2 text-sm text-ink/60">{testimonial.name} · {testimonial.detail}</p></div><button onClick={() => operation({ action: "testimonial", id: testimonial.id, status: testimonial.status === "PUBLISHED" ? "ARCHIVED" : "PUBLISHED" })} className="button-secondary">{testimonial.status === "PUBLISHED" ? "Archive" : "Publish"}</button></div>)}</div></div></section>}
     {section === "audit" && <section className="mt-10"><h2 className="font-display text-3xl">Administrative activity</h2><div className="mt-5 space-y-3">{operations.auditLogs.length === 0 ? <p className="text-sm text-ink/60">No content activity recorded yet.</p> : operations.auditLogs.map((log) => <div key={log.id} className="card flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between"><p><span className="font-semibold">{log.action}</span> {log.entity.toLowerCase().replace("_", " ")}{log.entityId ? ` (${log.entityId})` : ""}</p><p className="text-ink/55">{log.actor} · {display(log.createdAt)}</p></div>)}</div></section>}
     {section === "policy" && <section className="mt-10 max-w-xl"><h2 className="font-display text-3xl">Cancellation & rescheduling</h2><div className="card mt-5 space-y-5"><label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={operations.cancellationPolicy.enabled} onChange={(event) => operation({ action: "policy", enabled: event.target.checked })} /> Allow customer cancellation</label><label className="block text-sm font-semibold">Minimum notice (hours)<input type="number" min="0" max="168" value={operations.cancellationPolicy.minimumHours} onChange={(event) => operation({ action: "policy", minimumHours: Number(event.target.value) })} className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" /></label><label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={operations.cancellationPolicy.allowReschedule} onChange={(event) => operation({ action: "policy", allowReschedule: event.target.checked })} /> Allow customer rescheduling</label><label className="block text-sm font-semibold">Reschedule limit<input type="number" min="0" max="5" value={operations.cancellationPolicy.rescheduleLimit} onChange={(event) => operation({ action: "policy", rescheduleLimit: Number(event.target.value) })} className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" /></label><p className="text-sm leading-6 text-ink/60">Policy changes apply to new customer actions immediately. Administrators can always resolve operational bookings.</p></div></section>}
