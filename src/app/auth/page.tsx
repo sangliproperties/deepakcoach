@@ -39,7 +39,7 @@ export default function AuthPage() {
   }
 
 
-  
+
   return (
     <div className="mx-auto grid min-h-[70vh] max-w-5xl gap-10 px-5 py-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:px-8">
       <div>
@@ -61,7 +61,26 @@ export default function AuthPage() {
           <label className={`${mode === "register" ? "mt-5" : ""} block text-sm font-semibold`} htmlFor="email">Email address</label>
           <input id="email" name="email" type="email" required className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" />
           {mode !== "recover" && <><label className="mt-5 block text-sm font-semibold" htmlFor="password">Password</label><input id="password" name="password" type="password" required minLength={8} className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" /></>}
-          {mode === "register" && <><label className="mt-5 block text-sm font-semibold" htmlFor="phone">Phone <span className="font-normal text-ink/50">(optional)</span></label><input id="phone" name="phone" type="tel" className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" /></>}
+          {mode === "register" && (
+            <>
+              <label className="mt-5 block text-sm font-semibold" htmlFor="phone">
+                Phone
+              </label>
+
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                required
+                minLength={10}
+                maxLength={10}
+                pattern="[0-9]{10}"
+                inputMode="numeric"
+                placeholder="Enter 10-digit mobile number"
+                className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+            </>
+          )}
           {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
           {message && <p role="status" className="mt-4 rounded-xl bg-mist px-4 py-3 text-sm text-moss">{message}</p>}
           <button disabled={busy} className="button-primary mt-6 w-full">{busy ? "Please wait…" : mode === "login" ? "Sign in" : mode === "register" ? "Create account" : "Send recovery guidance"}</button>

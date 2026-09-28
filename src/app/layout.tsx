@@ -69,12 +69,30 @@ export default async function RootLayout({
                     </Link>
                   )}
 
-                  <Link
-                    href="/account"
-                    className="hidden text-sm font-semibold text-moss sm:inline-flex"
-                  >
-                    Account
-                  </Link>
+                  {user.role === "CUSTOMER" && (
+                    <Link
+                      href="/account"
+                      className="hidden items-center gap-2 rounded-full border border-moss/20 bg-moss/5 px-3 py-2 text-sm font-semibold text-moss transition hover:bg-moss/10 sm:inline-flex"
+                    >
+                      <span
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-moss text-xs font-bold text-white"
+                        aria-hidden="true"
+                      >
+                        {user.name?.charAt(0).toUpperCase() || "U"}
+                      </span>
+
+                      <span>{user.name || "My Account"}</span>
+                    </Link>
+                  )}
+
+                  {user.role !== "CUSTOMER" && (
+                    <Link
+                      href="/account"
+                      className="hidden text-sm font-semibold text-moss sm:inline-flex"
+                    >
+                      Account
+                    </Link>
+                  )}
 
                   <HeaderSignOut />
 
