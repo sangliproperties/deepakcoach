@@ -22,7 +22,12 @@ export default function ProgramsPage() {
               <p className="mt-2 font-medium text-moss">{program.tagline}</p>
               <p className="mt-4 max-w-2xl leading-7 text-ink/70">{program.description}</p>
               <div className="mt-6 flex flex-wrap gap-3">
-                {program.priceInr === 0 ? <Link href={`/book?program=${program.id}`} className="button-primary">View available times</Link> : program.id === "focused-growth" ? <Link href={`/book?program=${program.id}`} className="button-primary">Book this session</Link> : <Link href="/contact" className="button-secondary">Enquire about fit</Link>}
+                <Link
+                  href={`/book?program=${program.id}`}
+                  className="button-primary"
+                >
+                  Book this session
+                </Link>
               </div>
             </div>
             <div className="rounded-2xl bg-sand p-6">

@@ -94,11 +94,11 @@ export default async function RootLayout({
                     </Link>
                   )}
 
-                  <HeaderSignOut />
-
                   <Link href="/book" className="button-primary">
                     Book a session
                   </Link>
+
+                  <HeaderSignOut />
                 </>
               ) : (
                 <>
