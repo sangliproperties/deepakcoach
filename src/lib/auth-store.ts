@@ -200,3 +200,60 @@ export async function updateDatabaseUserRole(
         }
     });
 }
+
+export async function updateDatabaseUserProfile(
+    userId: string,
+    input: {
+        name: string;
+        email: string;
+        phone: string;
+    }
+) {
+    const name = input.name.trim();
+
+    const email =
+        input.email
+            .trim()
+            .toLowerCase();
+
+    const phone =
+        input.phone.trim();
+
+    const existingUser =
+        await prisma.user.findFirst({
+            where: {
+                email,
+                NOT: {
+                    id: userId
+                }
+            },
+
+            select: {
+                id: true
+            }
+        });
+
+    if (existingUser) {
+        return {
+            error:
+                "EMAIL_ALREADY_EXISTS" as const
+        };
+    }
+
+    const user =
+        await prisma.user.update({
+            where: {
+                id: userId
+            },
+
+            data: {
+                name,
+                email,
+                phone
+            }
+        });
+
+    return {
+        user: publicUser(user)
+    };
+}

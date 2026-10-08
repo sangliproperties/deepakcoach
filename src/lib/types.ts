@@ -22,6 +22,8 @@ export type AvailabilitySlot = {
   startsAt: string;
   endsAt: string;
   isOpen: boolean;
+  hasBooking?: boolean;
+  isAdminClosed?: boolean;
 };
 
 export type SessionUser = {

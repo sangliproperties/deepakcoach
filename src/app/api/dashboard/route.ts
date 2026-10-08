@@ -15,47 +15,90 @@ export async function GET() {
 
   const databaseBookings = await listDatabaseBookings(user.id);
 
-  const bookings = databaseBookings.map((booking) => ({
-    id: booking.id,
-    reference: booking.reference,
+  const now = new Date();
 
-    status: booking.status,
+  const bookings =
+    databaseBookings.map((booking) => {
+      const startsAt =
+        booking.availability?.startsAt;
 
-    paymentStatus:
-      booking.payment?.status ?? undefined,
+      const endsAt =
+        booking.availability?.endsAt;
 
-    programId: booking.programId,
+      const meetingAvailable =
+        booking.status === "CONFIRMED" &&
+        !!booking.accessUrl &&
+        !!startsAt &&
+        !!endsAt &&
+        now >= startsAt &&
+        now <= endsAt;
 
-    programTitle:
-      booking.program?.title ?? "Program",
+      return {
+        id: booking.id,
+        reference: booking.reference,
 
-    availabilityId:
-      booking.availabilityId,
+        status: booking.status,
 
-    startsAt:
-      booking.availability?.startsAt.toISOString(),
+        paymentStatus:
+          booking.payment?.status ??
+          undefined,
 
-    endsAt:
-      booking.availability?.endsAt.toISOString(),
+        programId:
+          booking.programId,
 
-    createdAt:
-      booking.createdAt.toISOString(),
+        programTitle:
+          booking.program?.title ??
+          "Program",
 
-    rescheduleCount:
-      booking.rescheduleCount,
+        availabilityId:
+          booking.availabilityId,
 
-    payment: booking.payment
-      ? {
-        id: booking.payment.id,
-        amountInr: booking.payment.amountInr,
-        status: booking.payment.status,
-        orderId:
-          booking.payment.providerOrderId,
-        paymentId:
-          booking.payment.providerPaymentId
-      }
-      : undefined
-  }));
+        startsAt:
+          startsAt?.toISOString(),
+
+        endsAt:
+          endsAt?.toISOString(),
+
+        createdAt:
+          booking.createdAt.toISOString(),
+
+        rescheduleCount:
+          booking.rescheduleCount,
+
+        accessUrl:
+          meetingAvailable
+            ? booking.accessUrl ??
+            undefined
+            : undefined,
+
+        accessInstructions:
+          booking.accessInstructions ??
+          undefined,
+
+        meetingAvailable,
+
+        payment: booking.payment
+          ? {
+            id:
+              booking.payment.id,
+
+            amountInr:
+              booking.payment.amountInr,
+
+            status:
+              booking.payment.status,
+
+            orderId:
+              booking.payment
+                .providerOrderId,
+
+            paymentId:
+              booking.payment
+                .providerPaymentId
+          }
+          : undefined
+      };
+    });
 
   return Response.json({
     bookings,

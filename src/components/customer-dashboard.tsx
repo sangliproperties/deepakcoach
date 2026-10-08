@@ -13,6 +13,7 @@ type DashboardBooking = {
   endsAt?: string;
   accessUrl?: string;
   accessInstructions?: string;
+  meetingAvailable?: boolean;
 };
 
 function date(value?: string) {
@@ -39,7 +40,25 @@ export default function CustomerDashboard() {
     setNotifications(data.notifications || []);
     setSlots(slotData.availability || []);
   }
-  useEffect(() => { load().catch(() => setError("Could not load your dashboard.")); }, []);
+  useEffect(() => {
+    load().catch(() =>
+      setError(
+        "Could not load your dashboard."
+      )
+    );
+
+    const interval =
+      window.setInterval(() => {
+        load().catch(() => {
+          // Keep the existing dashboard visible
+          // if a background refresh fails.
+        });
+      }, 30_000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
 
   async function updateBooking(input: { bookingId: string; action: "cancel" | "reschedule"; availabilityId?: string }) {
     setError("");
@@ -69,7 +88,39 @@ export default function CustomerDashboard() {
       {bookings.length === 0 ? <p className="mt-5 rounded-2xl bg-sand p-5 text-sm text-ink/65">Your purchased sessions and booking history will appear here.</p> : <div className="mt-5 space-y-4">{bookings.map((booking) => <article key={booking.id} className="rounded-2xl border border-ink/10 bg-white p-5">
         <div className="flex flex-col justify-between gap-3 sm:flex-row"><div><h3 className="font-display text-2xl">{booking.programTitle || "Coaching session"}</h3><p className="mt-1 font-mono text-sm text-moss">{booking.reference}</p></div><span className="h-fit rounded-full bg-mist px-3 py-1 text-xs font-semibold capitalize text-moss">{booking.status.toLowerCase()}</span></div>
         <p className="mt-4 text-sm text-ink/65">{date(booking.startsAt)}{booking.endsAt ? ` – ${date(booking.endsAt)}` : ""} · payment {booking.paymentStatus?.toLowerCase() || "not required"}</p>
-        {booking.accessInstructions && <div className="mt-4 rounded-xl bg-sand p-4 text-sm leading-6"><p className="font-semibold">Access details</p><p className="mt-1 text-ink/65">{booking.accessInstructions}</p>{booking.accessUrl && <a href={booking.accessUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex font-semibold text-moss underline">Open meeting room ↗</a>}</div>}
+        {booking.status === "CONFIRMED" && (
+          <div className="mt-4 rounded-xl bg-sand p-4 text-sm leading-6">
+            <p className="font-semibold">
+              Google Meet
+            </p>
+
+            <p className="mt-1 text-ink/65">
+              {booking.meetingAvailable
+                ? "Your Google Meet is available now."
+                : "Google Meet will be available during your scheduled session time."}
+            </p>
+
+            {booking.meetingAvailable &&
+              booking.accessUrl ? (
+              <a
+                href={booking.accessUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="button-primary mt-3 inline-flex"
+              >
+                Join Google Meet
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="button-secondary mt-3 cursor-not-allowed opacity-50"
+              >
+                Google Meet available at session time
+              </button>
+            )}
+          </div>
+        )}
         {(booking.status === "PENDING" || booking.status === "CONFIRMED") && <div className="mt-4 flex flex-wrap gap-3"><button onClick={() => updateBooking({ bookingId: booking.id, action: "cancel" })} className="text-sm font-semibold text-coral underline underline-offset-4">Cancel booking</button>{booking.status === "CONFIRMED" && <select aria-label={`Reschedule ${booking.reference}`} defaultValue="" onChange={(event) => { if (event.target.value) updateBooking({ bookingId: booking.id, action: "reschedule", availabilityId: event.target.value }); }} className="rounded-lg border border-ink/15 px-3 py-2 text-sm"><option value="">Reschedule…</option>{slots.filter((slot) => slot.isOpen).map((slot) => <option key={slot.id} value={slot.id}>{date(slot.startsAt)}</option>)}</select>}</div>}
       </article>)}</div>}
     </section>

@@ -295,6 +295,64 @@ export function addProgram(actorId: string, input: Omit<Program, "id">) {
   return { ...program, active: true };
 }
 
+export function updateProgram(
+  actorId: string,
+  id: string,
+  input: Omit<Program, "id">
+) {
+  const store = getStore();
+
+  const existingProgram =
+    store.programs.get(id);
+
+  if (!existingProgram) {
+    return null;
+  }
+
+  // Do not allow another program to use
+  // the same slug.
+  const duplicateSlug =
+    Array.from(
+      store.programs.values()
+    ).some(
+      (program) =>
+        program.id !== id &&
+        program.slug === input.slug
+    );
+
+  if (duplicateSlug) {
+    return null;
+  }
+
+  const updatedProgram: Program = {
+    ...existingProgram,
+    ...input,
+
+    // Keep the original ID unchanged.
+    // Existing bookings may reference it.
+    id
+  };
+
+  store.programs.set(
+    id,
+    updatedProgram
+  );
+
+  recordAudit(
+    actorId,
+    "UPDATE",
+    "PROGRAM",
+    id
+  );
+
+  return {
+    ...updatedProgram,
+    active:
+      store.programStatus.get(id) !==
+      false
+  };
+}
+
 export function addAvailability(startsAt: string, durationMins: number) {
   const start = new Date(startsAt);
   const end = new Date(start.getTime() + durationMins * 60_000);

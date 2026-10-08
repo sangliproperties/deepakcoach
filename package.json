@@ -13,6 +13,7 @@
   "dependencies": {
     "@prisma/client": "^5.19.1",
     "bcryptjs": "^3.0.3",
+    "googleapis": "^183.0.0",
     "next": "14.2.30",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

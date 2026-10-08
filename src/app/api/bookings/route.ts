@@ -5,10 +5,14 @@ import { getCurrentUser } from "@/lib/auth";
 import {
   cancelDatabaseBooking,
   createDatabaseBooking,
+  ensureBookingMeeting,
+  getDatabaseBooking,
   getDatabasePaymentForBooking,
   listDatabaseBookings,
   rescheduleDatabaseBooking,
-  setDatabasePaymentOrder
+  setDatabasePaymentOrder,
+  syncCancelledBookingCalendar,
+  syncRescheduledBookingCalendar
 } from "@/lib/booking-store";
 
 import { jsonError } from "@/lib/http";
@@ -112,6 +116,22 @@ export async function POST(request: Request) {
     );
   }
 
+  if (
+    result.booking.status ===
+    "CONFIRMED"
+  ) {
+    try {
+      await ensureBookingMeeting(
+        result.booking.id
+      );
+    } catch (error) {
+      console.error(
+        "Google Meet creation failed:",
+        error
+      );
+    }
+  }
+
   let payment =
     await getDatabasePaymentForBooking(
       result.booking.id
@@ -131,11 +151,17 @@ export async function POST(request: Request) {
       );
   }
 
+  const refreshedBooking =
+    await getDatabaseBooking(
+      result.booking.id
+    );
+
   return Response.json(
     {
       booking:
         serializeBooking({
-          ...result.booking,
+          ...(refreshedBooking ||
+            result.booking),
           payment
         }),
 
@@ -234,6 +260,30 @@ export async function PATCH(request: Request) {
       messages[errorCode] ||
       "Booking could not be updated.",
       409
+    );
+  }
+
+  try {
+    if (
+      parsed.data.action === "cancel"
+    ) {
+      await syncCancelledBookingCalendar(
+        result.booking.id
+      );
+    }
+
+    if (
+      parsed.data.action ===
+      "reschedule"
+    ) {
+      await syncRescheduledBookingCalendar(
+        result.booking.id
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Google Calendar synchronization failed:",
+      error
     );
   }
 

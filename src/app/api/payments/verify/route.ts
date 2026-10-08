@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 
 import {
+  ensureBookingMeeting,
   getDatabaseBooking,
   getDatabasePaymentForBooking,
   markDatabasePayment
@@ -61,6 +62,17 @@ export async function POST(request: Request) {
   }
 
   if (payment.status === "PAID") {
+    try {
+      await ensureBookingMeeting(
+        booking.id
+      );
+    } catch (error) {
+      console.error(
+        "Google Meet recovery failed:",
+        error
+      );
+    }
+
     return Response.json({
       booking: {
         id: booking.id,
@@ -133,6 +145,22 @@ export async function POST(request: Request) {
       "Payment could not be updated.",
       500
     );
+  }
+
+  if (
+    updated.booking.status ===
+    "CONFIRMED"
+  ) {
+    try {
+      await ensureBookingMeeting(
+        updated.booking.id
+      );
+    } catch (error) {
+      console.error(
+        "Google Meet creation failed after payment:",
+        error
+      );
+    }
   }
 
   return Response.json({

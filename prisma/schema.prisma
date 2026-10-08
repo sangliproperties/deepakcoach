@@ -134,8 +134,11 @@ model Booking {
   rescheduledFromId String?
   rescheduleCount   Int       @default(0)
 
-  accessUrl          String?
-  accessInstructions String?
+  accessUrl              String?
+  accessInstructions     String?
+  googleCalendarEventId  String?
+  googleCalendarEventUrl String?
+  meetEmailSentAt        DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

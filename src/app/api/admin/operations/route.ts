@@ -22,7 +22,8 @@ import {
   updateTestimonial,
   listEnquiries,
   markEnquiryRead,
-  addProgram
+  addProgram,
+  updateProgram
 } from "@/lib/demo-store";
 
 import {
@@ -256,31 +257,256 @@ export async function PATCH(request: Request) {
   return jsonError("The requested operation is invalid.");
 }
 
-export async function PUT(request: Request) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("Administrator access required.", 403);
+export async function PUT(
+  request: Request
+) {
+  const admin =
+    await requireAdmin();
+
+  if (!admin) {
+    return jsonError(
+      "Administrator access required.",
+      403
+    );
+  }
+
   const parsed = z.object({
-    contentType: z.enum(["youtube-session", "testimonial"]),
+    contentType: z.enum([
+      "youtube-session",
+      "testimonial",
+      "program"
+    ]),
+
     id: z.string().min(1),
-    title: z.string().trim().min(2).max(120).optional(),
-    description: z.string().trim().min(2).max(1000).optional(),
-    category: z.string().trim().min(2).max(80).optional(),
-    duration: z.string().trim().min(1).max(40).optional(),
-    videoId: z.string().trim().max(30).optional(),
-    quote: z.string().trim().min(2).max(1000).optional(),
-    name: z.string().trim().min(2).max(120).optional(),
-    detail: z.string().trim().min(2).max(200).optional(),
-    status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional()
-  }).safeParse(await request.json());
-  if (!parsed.success) return jsonError("Please provide valid content details.");
+
+    // YouTube session
+    title: z.string()
+      .trim()
+      .min(2)
+      .max(120)
+      .optional(),
+
+    description: z.string()
+      .trim()
+      .min(2)
+      .max(1000)
+      .optional(),
+
+    category: z.string()
+      .trim()
+      .min(2)
+      .max(80)
+      .optional(),
+
+    duration: z.string()
+      .trim()
+      .min(1)
+      .max(40)
+      .optional(),
+
+    videoId: z.string()
+      .trim()
+      .max(30)
+      .optional(),
+
+    // Testimonial
+    quote: z.string()
+      .trim()
+      .min(2)
+      .max(1000)
+      .optional(),
+
+    name: z.string()
+      .trim()
+      .min(2)
+      .max(120)
+      .optional(),
+
+    detail: z.string()
+      .trim()
+      .min(2)
+      .max(200)
+      .optional(),
+
+    status: z.enum([
+      "DRAFT",
+      "PUBLISHED",
+      "ARCHIVED"
+    ]).optional(),
+
+    // Program
+    slug: z.string()
+      .trim()
+      .regex(/^[a-z0-9-]+$/)
+      .optional(),
+
+    tagline: z.string()
+      .trim()
+      .min(2)
+      .max(200)
+      .optional(),
+
+    durationMins: z.number()
+      .int()
+      .min(15)
+      .max(480)
+      .optional(),
+
+    priceInr: z.number()
+      .int()
+      .min(0)
+      .max(1000000)
+      .optional(),
+
+    format: z.string()
+      .trim()
+      .min(2)
+      .max(100)
+      .optional(),
+
+    inclusions: z.array(
+      z.string()
+        .trim()
+        .min(1)
+        .max(200)
+    )
+      .max(10)
+      .optional(),
+
+    eligibility: z.string()
+      .trim()
+      .min(2)
+      .max(500)
+      .optional(),
+
+    expectations: z.string()
+      .trim()
+      .min(2)
+      .max(500)
+      .optional()
+  }).safeParse(
+    await request.json()
+  );
+
+  if (!parsed.success) {
+    return jsonError(
+      "Please provide valid content details."
+    );
+  }
+
   const data = parsed.data;
-  if (data.contentType === "youtube-session" && data.title && data.description && data.category && data.duration) {
-    return Response.json({ youtubeSession: updateYoutubeSession(admin.id, data.id, { title: data.title, description: data.description, category: data.category, duration: data.duration, videoId: data.videoId || undefined }) });
+
+  // YouTube session
+  if (
+    data.contentType ===
+    "youtube-session" &&
+    data.title &&
+    data.description &&
+    data.category &&
+    data.duration
+  ) {
+    return Response.json({
+      youtubeSession:
+        updateYoutubeSession(
+          admin.id,
+          data.id,
+          {
+            title: data.title,
+            description:
+              data.description,
+            category:
+              data.category,
+            duration:
+              data.duration,
+            videoId:
+              data.videoId ||
+              undefined
+          }
+        )
+    });
   }
-  if (data.contentType === "testimonial" && data.quote && data.name && data.detail && data.status) {
-    return Response.json({ testimonial: updateTestimonial(admin.id, data.id, { quote: data.quote, name: data.name, detail: data.detail, status: data.status }) });
+
+  // Testimonial
+  if (
+    data.contentType ===
+    "testimonial" &&
+    data.quote &&
+    data.name &&
+    data.detail &&
+    data.status
+  ) {
+    return Response.json({
+      testimonial:
+        updateTestimonial(
+          admin.id,
+          data.id,
+          {
+            quote: data.quote,
+            name: data.name,
+            detail: data.detail,
+            status: data.status
+          }
+        )
+    });
   }
-  return jsonError("Please provide all required content details.");
+
+  // Program
+  if (
+    data.contentType ===
+    "program" &&
+    data.slug &&
+    data.title &&
+    data.tagline &&
+    data.description &&
+    data.durationMins !==
+    undefined &&
+    data.priceInr !== undefined &&
+    data.format &&
+    data.inclusions &&
+    data.eligibility &&
+    data.expectations
+  ) {
+    const program =
+      updateProgram(
+        admin.id,
+        data.id,
+        {
+          slug: data.slug,
+          title: data.title,
+          tagline:
+            data.tagline,
+          description:
+            data.description,
+          durationMins:
+            data.durationMins,
+          priceInr:
+            data.priceInr,
+          format:
+            data.format,
+          inclusions:
+            data.inclusions,
+          eligibility:
+            data.eligibility,
+          expectations:
+            data.expectations
+        }
+      );
+
+    if (!program) {
+      return jsonError(
+        "Program was not found or that slug is already in use.",
+        409
+      );
+    }
+
+    return Response.json({
+      program
+    });
+  }
+
+  return jsonError(
+    "Please provide all required content details."
+  );
 }
 
 export async function DELETE(request: Request) {

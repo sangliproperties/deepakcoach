@@ -40,8 +40,46 @@ export default function BookPage() {
       return;
     }
     if (!response.ok) {
-      setError(data.error === "SLOT_ALREADY_BOOKED" ? "That time was just claimed by someone else. Please choose another slot." : data.error || "We could not create your booking.");
-      setSlots((current) => current.filter((slot) => slot.id !== selectedSlot));
+      if (
+        data.error ===
+        "SLOT_ALREADY_BOOKED"
+      ) {
+        setError(
+          "That time was just claimed by someone else. Please choose another slot."
+        );
+
+        /*
+         * Keep the slot visible,
+         * but immediately change it
+         * to the booked/red state.
+         */
+        setSlots((current) =>
+          current.map((slot) =>
+            slot.id === selectedSlot
+              ? {
+                ...slot,
+                isOpen: false,
+                hasBooking: true
+              }
+              : slot
+          )
+        );
+
+        /*
+         * Clear the old selection so
+         * customer cannot try the same
+         * booked slot again.
+         */
+        setSelectedSlot("");
+
+        return;
+      }
+
+      setError(
+        data.error ||
+        "We could not create your booking."
+      );
+
       return;
     }
     setBooking(data.booking);
@@ -80,11 +118,189 @@ export default function BookPage() {
           <p className="mt-5 text-xs leading-5 text-ink/55">Your selected slot is held when the server accepts the booking request. A slot cannot be claimed twice.</p>
         </div>
         <div>
-          <div className="mb-4 flex items-center justify-between"><h2 className="font-display text-2xl">Available times</h2><span className="text-sm text-ink/55">{slots.length} open</span></div>
-          {slots.length === 0 ? <div className="card text-center text-ink/65">No times are currently available. Please enquire and we will help you find a suitable option.</div> : <div className="grid gap-3 sm:grid-cols-2">{slots.map((slot) => <button key={slot.id} type="button" onClick={() => setSelectedSlot(slot.id)} className={`rounded-2xl border p-4 text-left transition ${selectedSlot === slot.id ? "border-moss bg-mist ring-2 ring-moss/20" : "border-ink/10 bg-white hover:border-moss/50"}`}><span className="block text-sm font-semibold">{displayDate(slot.startsAt)}</span><span className="mt-1 block text-xs text-ink/55">Until {new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit" }).format(new Date(slot.endsAt))}</span></button>)}</div>}
-          {error && <p role="alert" className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
-          {selectedSlot && <div className="mt-7 rounded-2xl border border-moss/20 bg-white p-5"><p className="text-sm text-ink/65">Selected time</p><p className="mt-1 font-semibold">{displayDate(slots.find((slot) => slot.id === selectedSlot)?.startsAt || "")}</p><button onClick={reserve} disabled={busy} className="button-primary mt-5 w-full">{busy ? "Reserving…" : program.priceInr === 0 ? "Confirm free booking" : `Continue to payment · ${formatInr(program.priceInr)}`}</button></div>}
-          {booking && program.priceInr > 0 && !status && <div className="mt-7 rounded-2xl border border-coral/30 bg-sand p-5"><p className="font-semibold">Payment pending</p><p className="mt-2 text-sm leading-6 text-ink/65">Your booking reference is {booking.reference}. In demo mode, use the button below to simulate a verified Razorpay success callback.</p><button onClick={payDemo} disabled={busy} className="button-primary mt-5">{busy ? "Verifying…" : "Simulate successful payment"}</button><button onClick={async () => { await fetch("/api/payments/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bookingId: booking.id, paymentId: `pay_failed_${Date.now()}`, signature: "invalid" }) }); setError("Payment failed. Your booking is still visible for a retry."); }} className="button-secondary mt-3 w-full">Simulate failed payment</button></div>}
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-display text-2xl">
+              Available times
+            </h2>
+
+            <span className="text-sm text-ink/55">
+              {slots.filter(
+                (slot) =>
+                  slot.isOpen &&
+                  !slot.hasBooking
+              ).length} open
+            </span>
+          </div>
+
+          {slots.length === 0 ? (
+            <div className="card text-center text-ink/65">
+              No times are currently available.
+              Please enquire and we will help you
+              find a suitable option.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {slots.map((slot) => {
+                const booked =
+                  slot.hasBooking === true;
+
+                const selected =
+                  selectedSlot === slot.id;
+
+                return (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    disabled={booked}
+                    onClick={() => {
+                      if (!booked) {
+                        setSelectedSlot(slot.id);
+                      }
+                    }}
+                    className={
+                      booked
+                        ? "cursor-not-allowed rounded-2xl border-2 border-red-500 bg-red-50 p-4 text-left text-red-700"
+                        : selected
+                          ? "rounded-2xl border border-moss bg-mist p-4 text-left ring-2 ring-moss/20 transition"
+                          : "rounded-2xl border border-ink/10 bg-white p-4 text-left transition hover:border-moss/50"
+                    }
+                  >
+                    <span className="block text-sm font-semibold">
+                      {displayDate(
+                        slot.startsAt
+                      )}
+                    </span>
+
+                    <span
+                      className={
+                        booked
+                          ? "mt-1 block text-xs text-red-600"
+                          : "mt-1 block text-xs text-ink/55"
+                      }
+                    >
+                      Until{" "}
+                      {new Intl.DateTimeFormat(
+                        "en-IN",
+                        {
+                          hour: "numeric",
+                          minute: "2-digit"
+                        }
+                      ).format(
+                        new Date(
+                          slot.endsAt
+                        )
+                      )}
+                    </span>
+
+                    {booked ? (
+                      <span className="mt-3 block text-sm font-bold text-red-600">
+                        Slot was already Booked..!!
+                      </span>
+                    ) : (
+                      <span className="mt-3 block text-xs font-semibold text-moss">
+                        Available for booking
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {error && (
+            <p
+              role="alert"
+              className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800"
+            >
+              {error}
+            </p>
+          )}
+
+          {selectedSlot && (
+            <div className="mt-7 rounded-2xl border border-moss/20 bg-white p-5">
+              <p className="text-sm text-ink/65">
+                Selected time
+              </p>
+
+              <p className="mt-1 font-semibold">
+                {displayDate(
+                  slots.find(
+                    (slot) =>
+                      slot.id === selectedSlot
+                  )?.startsAt || ""
+                )}
+              </p>
+
+              <button
+                onClick={reserve}
+                disabled={busy}
+                className="button-primary mt-5 w-full"
+              >
+                {busy
+                  ? "Reserving…"
+                  : program.priceInr === 0
+                    ? "Confirm free booking"
+                    : `Continue to payment · ${formatInr(
+                      program.priceInr
+                    )}`}
+              </button>
+            </div>
+          )}
+
+          {booking &&
+            program.priceInr > 0 &&
+            !status && (
+              <div className="mt-7 rounded-2xl border border-coral/30 bg-sand p-5">
+                <p className="font-semibold">
+                  Payment pending
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-ink/65">
+                  Your booking reference is{" "}
+                  {booking.reference}. In demo mode,
+                  use the button below to simulate a
+                  verified Razorpay success callback.
+                </p>
+
+                <button
+                  onClick={payDemo}
+                  disabled={busy}
+                  className="button-primary mt-5"
+                >
+                  {busy
+                    ? "Verifying…"
+                    : "Simulate successful payment"}
+                </button>
+
+                <button
+                  onClick={async () => {
+                    await fetch(
+                      "/api/payments/verify",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type":
+                            "application/json"
+                        },
+                        body: JSON.stringify({
+                          bookingId: booking.id,
+                          paymentId:
+                            `pay_failed_${Date.now()}`,
+                          signature: "invalid"
+                        })
+                      }
+                    );
+
+                    setError(
+                      "Payment failed. Your booking is still visible for a retry."
+                    );
+                  }}
+                  className="button-secondary mt-3 w-full"
+                >
+                  Simulate failed payment
+                </button>
+              </div>
+            )}
         </div>
       </div>
     </div>
