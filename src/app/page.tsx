@@ -3,10 +3,29 @@ import { SectionHeading } from "@/components/section-heading";
 import { formatInr } from "@/lib/catalog";
 import { listPublicPrograms, listTestimonials } from "@/lib/demo-store";
 import { getLatestYoutubeVideos } from "@/lib/media";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const testimonials = listTestimonials("PUBLISHED");
   const programs = listPublicPrograms();
+
+  const approvedReviews = await prisma.review.findMany({
+    where: {
+      status: "APPROVED"
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    take: 6,
+    select: {
+      id: true,
+      rating: true,
+      text: true,
+      createdAt: true
+    }
+  });
 
   const youtubeSessions = await getLatestYoutubeVideos(3);
   return (
@@ -109,6 +128,85 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* CUSTOMER REVIEWS FROM POSTGRESQL */}
+      {approvedReviews.length > 0 && (
+        <section
+          id="customer-reviews"
+          className="bg-mist/40"
+        >
+          <div className="mx-auto max-w-6xl px-5 py-20 lg:px-8">
+
+            <SectionHeading
+              eyebrow="Real customer experiences"
+              title="Customer Reviews & Ratings"
+            >
+              Read feedback shared by our coaching
+              participants and approved for publication.
+            </SectionHeading>
+
+            <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+
+              {approvedReviews.map((review) => (
+                <article
+                  key={review.id}
+                  className="flex flex-col rounded-3xl border border-ink/10 bg-white p-6 shadow-sm"
+                >
+
+                  {/* STAR RATING */}
+                  <div
+                    className="flex items-center gap-1"
+                    aria-label={`${review.rating} out of 5 stars`}
+                  >
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        className={
+                          star <= review.rating
+                            ? "text-xl text-amber-500"
+                            : "text-xl text-gray-300"
+                        }
+                        aria-hidden="true"
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* RATING NUMBER */}
+                  <p className="mt-2 text-sm font-semibold text-moss">
+                    {review.rating} out of 5
+                  </p>
+
+                  {/* REVIEW TEXT */}
+                  <blockquote className="mt-5 flex-1 whitespace-pre-wrap font-display text-xl leading-8 text-ink">
+                    “{review.text}”
+                  </blockquote>
+
+                  {/* REVIEW DETAILS */}
+                  <div className="mt-8 border-t border-ink/10 pt-4">
+
+                    <p className="text-sm font-semibold text-ink">
+                      Verified booking review
+                    </p>
+
+                    <p className="mt-1 text-xs text-ink/50">
+                      {new Intl.DateTimeFormat("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric"
+                      }).format(review.createdAt)}
+                    </p>
+
+                  </div>
+
+                </article>
+              ))}
+
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="bg-white">
         <div className="mx-auto max-w-6xl px-5 py-20 lg:px-8">

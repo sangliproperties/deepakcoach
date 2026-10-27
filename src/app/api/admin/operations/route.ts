@@ -1,17 +1,17 @@
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import {
   listDatabaseUsers,
   updateDatabaseUserRole
 } from "@/lib/auth-store";
 import {
   getCancellationPolicy,
-  listPrograms,
   listReviews,
   listTestimonials,
   moderateReview,
   moderateTestimonial,
-  setProgramActive,
   updateCancellationPolicy,
   addTestimonial,
   addYoutubeSession,
@@ -21,9 +21,7 @@ import {
   removeYoutubeSession,
   updateTestimonial,
   listEnquiries,
-  markEnquiryRead,
-  addProgram,
-  updateProgram
+  markEnquiryRead
 } from "@/lib/demo-store";
 
 import {
@@ -127,16 +125,23 @@ export async function GET(request: Request) {
       paymentStatus
     });
 
+  const programs = await prisma.program.findMany({
+    orderBy: {
+      createdAt: "asc"
+    }
+  });
+
+  const reviews = await prisma.review.findMany({
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+
   return Response.json({
     users,
-
-    programs:
-      listPrograms(),
-
+    programs,
     bookings,
-
-    reviews:
-      listReviews(),
+    reviews,
 
     testimonials:
       listTestimonials(),
@@ -190,11 +195,63 @@ export async function POST(request: Request) {
   if (data.contentType === "testimonial" && data.quote && data.name && data.detail) {
     return Response.json({ testimonial: addTestimonial(admin.id, { quote: data.quote, name: data.name, detail: data.detail, status: "DRAFT" }) }, { status: 201 });
   }
-  if (data.contentType === "program" && data.slug && data.title && data.tagline && data.description && data.durationMins !== undefined && data.priceInr !== undefined && data.format && data.inclusions && data.eligibility && data.expectations) {
-    const program = addProgram(admin.id, { slug: data.slug, title: data.title, tagline: data.tagline, description: data.description, durationMins: data.durationMins, priceInr: data.priceInr, format: data.format, inclusions: data.inclusions, eligibility: data.eligibility, expectations: data.expectations });
-    if (!program) return jsonError("A program with that slug already exists.", 409);
-    return Response.json({ program }, { status: 201 });
+
+  if (
+    data.contentType === "program" &&
+    data.slug &&
+    data.title &&
+    data.tagline &&
+    data.description &&
+    data.durationMins !== undefined &&
+    data.priceInr !== undefined &&
+    data.format &&
+    data.inclusions &&
+    data.eligibility &&
+    data.expectations
+  ) {
+    try {
+      const program = await prisma.program.create({
+        data: {
+          id: crypto.randomUUID(),
+          slug: data.slug,
+          title: data.title,
+          tagline: data.tagline,
+          description: data.description,
+          durationMins: data.durationMins,
+          priceInr: data.priceInr,
+          format: data.format,
+          inclusions: data.inclusions,
+          eligibility: data.eligibility,
+          expectations: data.expectations,
+          featured: false,
+          active: true
+        }
+      });
+
+      return Response.json(
+        { program },
+        { status: 201 }
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return jsonError(
+          "A program with that slug already exists.",
+          409
+        );
+      }
+
+      console.error("Program creation failed:", error);
+
+      return jsonError(
+        "Could not save program to database.",
+        500
+      );
+    }
   }
+
   return jsonError("Please provide all required content details.");
 }
 
@@ -227,7 +284,47 @@ export async function PATCH(request: Request) {
   }).safeParse(await request.json());
   if (!parsed.success) return jsonError("The requested operation is invalid.");
   const data = parsed.data;
-  if (data.action === "review" && data.id && (data.status === "APPROVED" || data.status === "REJECTED")) return Response.json({ review: moderateReview(data.id, data.status) });
+
+  if (
+    data.action === "review" &&
+    data.id &&
+    (data.status === "APPROVED" ||
+      data.status === "REJECTED")
+  ) {
+    try {
+      const review = await prisma.review.update({
+        where: {
+          id: data.id
+        },
+        data: {
+          status: data.status
+        }
+      });
+
+      return Response.json({ review });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        return jsonError(
+          "Review was not found.",
+          404
+        );
+      }
+
+      console.error(
+        "Review moderation failed:",
+        error
+      );
+
+      return jsonError(
+        "Could not update review status.",
+        500
+      );
+    }
+  }
+
   if (data.action === "testimonial" && data.id && ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(data.status || "")) return Response.json({ testimonial: moderateTestimonial(admin.id, data.id, data.status as "DRAFT" | "PUBLISHED" | "ARCHIVED") });
   if (
     data.action === "user-role" &&
@@ -243,7 +340,36 @@ export async function PATCH(request: Request) {
       user
     });
   }
-  if (data.action === "program" && data.id && typeof data.active === "boolean") return Response.json({ program: setProgramActive(data.id, data.active) });
+
+  if (
+    data.action === "program" &&
+    data.id &&
+    typeof data.active === "boolean"
+  ) {
+    try {
+      const program = await prisma.program.update({
+        where: {
+          id: data.id
+        },
+        data: {
+          active: data.active
+        }
+      });
+
+      return Response.json({ program });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        return jsonError("Program not found.", 404);
+      }
+
+      console.error("Program status update failed:", error);
+      return jsonError("Could not update program status.", 500);
+    }
+  }
+
   if (data.action === "policy") return Response.json({ cancellationPolicy: updateCancellationPolicy({ enabled: data.enabled, minimumHours: data.minimumHours, allowReschedule: data.allowReschedule, rescheduleLimit: data.rescheduleLimit }) });
   if (data.action === "enquiry-read" && data.id) {
     const enquiry = markEnquiryRead(data.id);
@@ -451,58 +577,67 @@ export async function PUT(
   }
 
   // Program
+
+  // Program
   if (
-    data.contentType ===
-    "program" &&
+    data.contentType === "program" &&
     data.slug &&
     data.title &&
     data.tagline &&
     data.description &&
-    data.durationMins !==
-    undefined &&
+    data.durationMins !== undefined &&
     data.priceInr !== undefined &&
     data.format &&
     data.inclusions &&
     data.eligibility &&
     data.expectations
   ) {
-    const program =
-      updateProgram(
-        admin.id,
-        data.id,
-        {
+    try {
+      const program = await prisma.program.update({
+        where: {
+          id: data.id
+        },
+        data: {
           slug: data.slug,
           title: data.title,
-          tagline:
-            data.tagline,
-          description:
-            data.description,
-          durationMins:
-            data.durationMins,
-          priceInr:
-            data.priceInr,
-          format:
-            data.format,
-          inclusions:
-            data.inclusions,
-          eligibility:
-            data.eligibility,
-          expectations:
-            data.expectations
+          tagline: data.tagline,
+          description: data.description,
+          durationMins: data.durationMins,
+          priceInr: data.priceInr,
+          format: data.format,
+          inclusions: data.inclusions,
+          eligibility: data.eligibility,
+          expectations: data.expectations
         }
-      );
+      });
 
-    if (!program) {
+      return Response.json({ program });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P2002") {
+          return jsonError(
+            "A program with that slug already exists.",
+            409
+          );
+        }
+
+        if (error.code === "P2025") {
+          return jsonError(
+            "Program was not found.",
+            404
+          );
+        }
+      }
+
+      console.error("Program update failed:", error);
+
       return jsonError(
-        "Program was not found or that slug is already in use.",
-        409
+        "Could not update program in database.",
+        500
       );
     }
-
-    return Response.json({
-      program
-    });
   }
+
 
   return jsonError(
     "Please provide all required content details."

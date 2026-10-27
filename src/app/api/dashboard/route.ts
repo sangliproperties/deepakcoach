@@ -1,9 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { listDatabaseBookings } from "@/lib/booking-store";
-import {
-  listNotifications,
-  listReviews
-} from "@/lib/demo-store";
+import { listNotifications } from "@/lib/demo-store";
+import { prisma } from "@/lib/prisma";
 import { jsonError } from "@/lib/http";
 
 export async function GET() {
@@ -100,13 +98,18 @@ export async function GET() {
       };
     });
 
+  const reviews = await prisma.review.findMany({
+    where: {
+      userId: user.id
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+
   return Response.json({
     bookings,
-
-    reviews: listReviews().filter(
-      (review) => review.userId === user.id
-    ),
-
+    reviews,
     notifications: listNotifications(user.id)
   });
 }

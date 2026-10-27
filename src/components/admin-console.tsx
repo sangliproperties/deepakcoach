@@ -789,7 +789,236 @@ export default function AdminConsole() {
         editingProgramId
           ? saveProgram
           : addProgram
-      } className="card mt-5 grid gap-4 md:grid-cols-2"><input required placeholder="Slug, e.g. leadership-coaching" value={programForm.slug} onChange={(event) => setProgramForm({ ...programForm, slug: event.target.value })} className="rounded-xl border border-ink/15 px-4 py-3" /><input required placeholder="Program title" value={programForm.title} onChange={(event) => setProgramForm({ ...programForm, title: event.target.value })} className="rounded-xl border border-ink/15 px-4 py-3" /><input required placeholder="Tagline" value={programForm.tagline} onChange={(event) => setProgramForm({ ...programForm, tagline: event.target.value })} className="rounded-xl border border-ink/15 px-4 py-3" /><input required type="number" min="15" value={programForm.durationMins} onChange={(event) => setProgramForm({ ...programForm, durationMins: event.target.value })} className="rounded-xl border border-ink/15 px-4 py-3" placeholder="Duration (minutes)" /><input required type="number" min="0" value={programForm.priceInr} onChange={(event) => setProgramForm({ ...programForm, priceInr: event.target.value })} className="rounded-xl border border-ink/15 px-4 py-3" placeholder="Price (INR)" /><input required placeholder="Format" value={programForm.format} onChange={(event) => setProgramForm({ ...programForm, format: event.target.value })} className="rounded-xl border border-ink/15 px-4 py-3" /><textarea required placeholder="Description" value={programForm.description} onChange={(event) => setProgramForm({ ...programForm, description: event.target.value })} className="min-h-24 rounded-xl border border-ink/15 px-4 py-3 md:col-span-2" /><textarea required placeholder="Inclusions, one per line" value={programForm.inclusions} onChange={(event) => setProgramForm({ ...programForm, inclusions: event.target.value })} className="min-h-24 rounded-xl border border-ink/15 px-4 py-3" /><textarea required placeholder="Good fit for" value={programForm.eligibility} onChange={(event) => setProgramForm({ ...programForm, eligibility: event.target.value })} className="min-h-24 rounded-xl border border-ink/15 px-4 py-3" /><textarea required placeholder="What to expect" value={programForm.expectations} onChange={(event) => setProgramForm({ ...programForm, expectations: event.target.value })} className="min-h-24 rounded-xl border border-ink/15 px-4 py-3 md:col-span-2" /><div className="flex gap-3 md:col-span-2">
+      } className="card mt-5 grid gap-4 md:grid-cols-2">
+
+      {/* 1. Program Slug */}
+      <div className="space-y-1">
+        <label htmlFor="program-slug" className="block text-sm font-semibold">
+          Program Slug <span className="text-red-600">*</span>
+        </label>
+        <input
+          id="program-slug"
+          required
+          pattern="[a-z0-9-]+"
+          title="Use lowercase letters, numbers and hyphens only."
+          placeholder="e.g. good-mindset-student"
+          value={programForm.slug}
+          onChange={(event) =>
+            setProgramForm({ ...programForm, slug: event.target.value })
+          }
+          className="w-full rounded-xl border border-ink/15 px-4 py-3"
+        />
+        <p className="text-xs text-gray-500">
+          Required: Lowercase letters (a-z), numbers (0-9) and hyphens (-) only.
+          No uppercase letters or spaces. Must be unique.
+        </p>
+      </div>
+
+      {/* 2. Program Title */}
+      <div className="space-y-1">
+        <label htmlFor="program-title" className="block text-sm font-semibold">
+          Program Title <span className="text-red-600">*</span>
+        </label>
+        <input
+          id="program-title"
+          required
+          minLength={2}
+          maxLength={120}
+          placeholder="e.g. Good Mindset Student Course"
+          value={programForm.title}
+          onChange={(event) =>
+            setProgramForm({ ...programForm, title: event.target.value })
+          }
+          className="w-full rounded-xl border border-ink/15 px-4 py-3"
+        />
+        <p className="text-xs text-gray-500">
+          Required: 2–120 characters. Enter the program name displayed to customers.
+        </p>
+      </div>
+
+      {/* 3. Tagline */}
+      <div className="space-y-1">
+        <label htmlFor="program-tagline" className="block text-sm font-semibold">
+          Tagline <span className="text-red-600">*</span>
+        </label>
+        <input
+          id="program-tagline"
+          required
+          minLength={2}
+          maxLength={200}
+          placeholder="e.g. Build confidence, focus and a positive mindset"
+          value={programForm.tagline}
+          onChange={(event) =>
+            setProgramForm({ ...programForm, tagline: event.target.value })
+          }
+          className="w-full rounded-xl border border-ink/15 px-4 py-3"
+        />
+        <p className="text-xs text-gray-500">
+          Required: 2–200 characters. Write a short, attractive program summary.
+        </p>
+      </div>
+
+      {/* 4. Duration */}
+      <div className="space-y-1">
+        <label htmlFor="program-duration" className="block text-sm font-semibold">
+          Duration (Minutes) <span className="text-red-600">*</span>
+        </label>
+        <input
+          id="program-duration"
+          required
+          type="number"
+          min={15}
+          max={480}
+          step={1}
+          placeholder="e.g. 60"
+          value={programForm.durationMins}
+          onChange={(event) =>
+            setProgramForm({ ...programForm, durationMins: event.target.value })
+          }
+          className="w-full rounded-xl border border-ink/15 px-4 py-3"
+        />
+        <p className="text-xs text-gray-500">
+          Required: Whole number between 15 and 480. Example: 60 = 1 hour.
+        </p>
+      </div>
+
+      {/* 5. Price */}
+      <div className="space-y-1">
+        <label htmlFor="program-price" className="block text-sm font-semibold">
+          Price (INR) <span className="text-red-600">*</span>
+        </label>
+        <input
+          id="program-price"
+          required
+          type="number"
+          min={0}
+          max={1000000}
+          step={1}
+          placeholder="e.g. 1000"
+          value={programForm.priceInr}
+          onChange={(event) =>
+            setProgramForm({ ...programForm, priceInr: event.target.value })
+          }
+          className="w-full rounded-xl border border-ink/15 px-4 py-3"
+        />
+        <p className="text-xs text-gray-500">
+          Required: Enter price in rupees from ₹0 to ₹10,00,000.
+          Use 0 for a free program.
+        </p>
+      </div>
+
+      {/* 6. Format */}
+      <div className="space-y-1">
+        <label htmlFor="program-format" className="block text-sm font-semibold">
+          Program Format <span className="text-red-600">*</span>
+        </label>
+        <input
+          id="program-format"
+          required
+          minLength={2}
+          maxLength={100}
+          placeholder="e.g. Online, one-to-one"
+          value={programForm.format}
+          onChange={(event) =>
+            setProgramForm({ ...programForm, format: event.target.value })
+          }
+          className="w-full rounded-xl border border-ink/15 px-4 py-3"
+        />
+        <p className="text-xs text-gray-500">
+          Required: 2–100 characters. Example: Online, Offline, Group or One-to-one.
+        </p>
+      </div>
+
+      {/* 7. Description */}
+      <div className="space-y-1 md:col-span-2">
+        <label htmlFor="program-description" className="block text-sm font-semibold">
+          Program Description <span className="text-red-600">*</span>
+        </label>
+        <textarea
+          id="program-description"
+          required
+          minLength={2}
+          maxLength={1000}
+          placeholder="Describe the program, its purpose and benefits..."
+          value={programForm.description}
+          onChange={(event) =>
+            setProgramForm({ ...programForm, description: event.target.value })
+          }
+          className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
+        />
+        <p className="text-xs text-gray-500">
+          Required: 2–1000 characters. Explain what the program covers
+          and how it helps participants.
+        </p>
+      </div>
+
+      {/* 8. Inclusions */}
+      <div className="space-y-1">
+        <label htmlFor="program-inclusions" className="block text-sm font-semibold">
+          Program Inclusions <span className="text-red-600">*</span>
+        </label>
+        <textarea
+          id="program-inclusions"
+          required
+          placeholder={"Personalized coaching\nPractical exercises\nProgress review"}
+          value={programForm.inclusions}
+          onChange={(event) =>
+            setProgramForm({ ...programForm, inclusions: event.target.value })
+          }
+          className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
+        />
+        <p className="text-xs text-gray-500">
+          Required: Enter one inclusion per line. Maximum 10 entries,
+          each up to 200 characters. Do not leave blank lines.
+        </p>
+      </div>
+
+      {/* 9. Good Fit For */}
+      <div className="space-y-1">
+        <label htmlFor="program-eligibility" className="block text-sm font-semibold">
+          Good Fit For <span className="text-red-600">*</span>
+        </label>
+        <textarea
+          id="program-eligibility"
+          required
+          minLength={2}
+          maxLength={500}
+          placeholder="e.g. Students seeking better focus and confidence"
+          value={programForm.eligibility}
+          onChange={(event) =>
+            setProgramForm({ ...programForm, eligibility: event.target.value })
+          }
+          className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
+        />
+        <p className="text-xs text-gray-500">
+          Required: 2–500 characters. Describe who should join this program.
+        </p>
+      </div>
+
+      {/* 10. What to Expect */}
+      <div className="space-y-1 md:col-span-2">
+        <label htmlFor="program-expectations" className="block text-sm font-semibold">
+          What to Expect <span className="text-red-600">*</span>
+        </label>
+        <textarea
+          id="program-expectations"
+          required
+          minLength={2}
+          maxLength={500}
+          placeholder="e.g. Interactive coaching, practical guidance and action steps"
+          value={programForm.expectations}
+          onChange={(event) =>
+            setProgramForm({ ...programForm, expectations: event.target.value })
+          }
+          className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
+        />
+        <p className="text-xs text-gray-500">
+          Required: 2–500 characters. Explain what participants can expect
+          during the program.
+        </p>
+      </div>
+
+      <div className="flex gap-3 md:col-span-2">
         <button
           type="submit"
           className="button-primary flex-1"

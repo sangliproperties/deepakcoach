@@ -1,5 +1,24 @@
-import { listPublicPrograms } from "@/lib/demo-store";
+
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  return Response.json({ programs: listPublicPrograms() });
+  try {
+    const programs = await prisma.program.findMany({
+      where: {
+        active: true
+      },
+      orderBy: {
+        createdAt: "asc"
+      }
+    });
+
+    return Response.json({ programs });
+  } catch (error) {
+    console.error("Could not load programs:", error);
+
+    return Response.json(
+      { error: "Could not load programs." },
+      { status: 500 }
+    );
+  }
 }
