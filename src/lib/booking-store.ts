@@ -1030,7 +1030,12 @@ export async function listAdminBookings(input?: {
     startDate?: Date;
     endDate?: Date;
     paymentStatus?: PaymentStatus;
+    page?: number;
+    pageSize?: number;
 }) {
+    const page = Math.max(1, input?.page ?? 1);
+    const pageSize = input?.pageSize ?? 20;
+    const skip = (page - 1) * pageSize;
     return prisma.booking.findMany({
 
         where: {
@@ -1119,10 +1124,52 @@ export async function listAdminBookings(input?: {
             }
         },
 
-        orderBy: {
-            availability: {
-                startsAt: "desc"
-            }
+        orderBy: [
+            { createdAt: "desc" },
+            { id: "desc" }
+        ],
+
+        skip,
+        take: pageSize
+    });
+}
+
+export async function countAdminBookings(input?: {
+    startDate?: Date;
+    endDate?: Date;
+    paymentStatus?: PaymentStatus;
+    noPayment?: boolean;
+}) {
+    return prisma.booking.count({
+        where: {
+            ...(input?.startDate || input?.endDate
+                ? {
+                    availability: {
+                        startsAt: {
+                            ...(input?.startDate
+                                ? { gte: input.startDate }
+                                : {}),
+                            ...(input?.endDate
+                                ? { lt: input.endDate }
+                                : {})
+                        }
+                    }
+                }
+                : {}),
+
+            ...(input?.paymentStatus
+                ? {
+                    payment: {
+                        is: {
+                            status: input.paymentStatus
+                        }
+                    }
+                }
+                : {}),
+
+            ...(input?.noPayment
+                ? { payment: { is: null } }
+                : {})
         }
     });
 }

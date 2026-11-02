@@ -79,6 +79,7 @@ export default function AuthPage() {
                 placeholder="Enter 10-digit mobile number"
                 className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
               />
+              <p className="mt-5 text-left text-x leading-5 text-ink/70">Keep the password secure and never share it with anyone.</p>
             </>
           )}
           {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}

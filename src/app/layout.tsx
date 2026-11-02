@@ -6,11 +6,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Deepak Khot | Life coaching for purposeful action",
-  description: "A calm, clear coaching practice for people ready to take their next intentional step."
+  description:
+    "A calm, clear coaching practice for people ready to take their next intentional step.",
 };
 
 export default async function RootLayout({
-  children
+  children,
 }: {
   children: React.ReactNode;
 }) {
@@ -19,36 +20,89 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body>
-        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2"
+        >
           Skip to content
         </a>
         <header className="border-b border-ink/10 bg-[#fbfaf6]/95 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 lg:px-8">
-            <Link href="/" className="flex items-center gap-3" aria-label="Deepak Khot home">
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-moss font-display text-xl text-white">D</span>
+          <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-4 lg:px-6 xl:px-8">
+            <Link
+              href="/"
+              className="flex shrink-0 items-center gap-2 lg:gap-3"
+              aria-label="Deepak Khot home"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-moss font-display text-xl text-white">
+                D
+              </span>
               <span>
-                <span className="block font-display text-lg font-semibold">Deepak Khot</span>
-                <span className="block text-xs text-ink/60">Life coaching & personal development</span>
+                <span className="block font-display text-lg font-semibold">
+                  Deepak Khot
+                </span>
+                <span className="block text-xs text-ink/60">
+                  Life coaching & personal development
+                </span>
               </span>
             </Link>
-            <nav aria-label="Primary navigation" className="hidden items-center gap-6 text-sm font-medium md:flex">
-              <Link href="/#approach" className="hover:text-moss">Approach</Link>
-              <Link href="/programs" className="hover:text-moss">Programs</Link>
-              <Link href="/sessions" className="hover:text-moss">Sessions</Link>
-              <Link href="/#stories" className="hover:text-moss">Stories</Link>
+            <nav
+              aria-label="Primary navigation"
+              className="hidden min-w-0 items-center justify-center gap-3 whitespace-nowrap text-sm font-medium lg:gap-4 xl:flex"
+            >
+              <Link
+                href="/#approach"
+                className="whitespace-nowrap hover:text-moss"
+              >
+                Approach
+              </Link>
+
+              <Link
+                href="/programs"
+                className="whitespace-nowrap hover:text-moss"
+              >
+                Programs
+              </Link>
+
+              <Link
+                href="/sessions"
+                className="whitespace-nowrap hover:text-moss"
+              >
+                YouTube Sessions
+              </Link>
+
+              <Link
+                href="/paid-sessions"
+                className="whitespace-nowrap hover:text-moss"
+              >
+                Paid Sessions
+              </Link>
+
+              <Link
+                href="/#stories"
+                className="whitespace-nowrap hover:text-moss"
+              >
+                Stories
+              </Link>
+
               {!isAdmin && (
                 <>
-                  <Link href="/contact" className="hover:text-moss">
+                  <Link
+                    href="/contact"
+                    className="whitespace-nowrap hover:text-moss"
+                  >
                     Contact
                   </Link>
 
-                  <Link href="/about" className="whitespace-nowrap">
+                  <Link
+                    href="/about"
+                    className="whitespace-nowrap hover:text-moss"
+                  >
                     About
                   </Link>
                 </>
               )}
             </nav>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
               {user ? (
                 <>
                   {user.role === "ADMIN" && (
@@ -94,7 +148,10 @@ export default async function RootLayout({
                     </Link>
                   )}
 
-                  <Link href="/book" className="button-primary">
+                  <Link
+                    href="/book"
+                    className="button-primary whitespace-nowrap"
+                  >
                     Book a session
                   </Link>
 
@@ -106,19 +163,17 @@ export default async function RootLayout({
                     Login
                   </Link>
 
-                  <Link
-                    href="/auth?mode=register"
-                    className="button-primary"
-                  >
+                  <Link href="/auth?mode=register" className="button-primary">
                     Get started
                   </Link>
                 </>
               )}
             </div>
           </div>
+
           <nav
             aria-label="Mobile navigation"
-            className="mx-auto flex max-w-6xl gap-4 overflow-x-auto px-5 pb-3 text-sm font-medium md:hidden"
+            className="mx-auto flex w-full max-w-[1600px] gap-4 overflow-x-auto px-5 pb-3 text-sm font-medium xl:hidden"
           >
             {!isAdmin && (
               <Link href="/about" className="whitespace-nowrap">
@@ -135,7 +190,11 @@ export default async function RootLayout({
             </Link>
 
             <Link href="/sessions" className="whitespace-nowrap">
-              Sessions
+              Youtube Sessions
+            </Link>
+
+            <Link href="/paid-sessions" className="whitespace-nowrap">
+              Paid Sessions
             </Link>
 
             <Link href="/#stories" className="whitespace-nowrap">
@@ -153,8 +212,13 @@ export default async function RootLayout({
         <footer className="mt-20 border-t border-ink/10 bg-white">
           <div className="mx-auto flex max-w-6xl flex-col gap-5 px-5 py-10 text-sm text-ink/65 md:flex-row md:items-center md:justify-between lg:px-8">
             <div>
-              <p className="font-display text-lg font-semibold text-ink">Make space for your next step.</p>
-              <p className="mt-1">Coaching conversations grounded in clarity, choice, and compassionate action.</p>
+              <p className="font-display text-lg font-semibold text-ink">
+                Make space for your next step.
+              </p>
+              <p className="mt-1">
+                Coaching conversations grounded in clarity, choice, and
+                compassionate action.
+              </p>
             </div>
             <div className="flex gap-5">
               {!isAdmin && (

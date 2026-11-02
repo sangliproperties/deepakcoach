@@ -54,10 +54,11 @@ model User {
   phone        String?
   role         Role    @default(CUSTOMER)
 
-  bookings      Booking[]
-  reviews       Review[]
-  notifications Notification[]
-  sessions      Session[]
+  bookings          Booking[]
+  reviews           Review[]
+  notifications     Notification[]
+  sessions          Session[]
+  recordedPurchases RecordedPurchase[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -216,3 +217,40 @@ model BusinessPolicy {
   rescheduleLimit     Int      @default(1)
   updatedAt           DateTime @updatedAt
 }
+
+
+model RecordedVideo {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  description  String   @db.Text
+  durationMins Int
+  priceInr     Int
+  thumbnailKey String
+  videoKey     String
+  active       Boolean  @default(false)
+
+  purchases RecordedPurchase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RecordedPurchase {
+  id          String        @id @default(cuid())
+  userId      String
+  videoId     String
+  amountInr   Int
+  status      PaymentStatus @default(CREATED)
+  demoOrderId String        @unique
+  purchasedAt DateTime?
+
+  user  User          @relation(fields: [userId], references: [id])
+  video RecordedVideo @relation(fields: [videoId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, status])
+  @@index([videoId])
+}
+

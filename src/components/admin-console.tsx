@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import RecordedSessionAdmin from "@/components/recorded-session-admin";
 import type {
   AvailabilitySlot,
   CancellationPolicy,
@@ -87,6 +88,14 @@ type Operations = {
     active: boolean;
   }[];
   bookings: AdminBooking[];
+
+  bookingPagination: {
+    page: number;
+    pageSize: number;
+    totalBookings: number;
+    totalPages: number;
+  };
+
   reviews: Review[];
   testimonials: Testimonial[];
   youtubeSessions: YouTubeSession[];
@@ -192,16 +201,32 @@ export default function AdminConsole() {
     setBookingPaymentStatus
   ] = useState("");
 
+  const [bookingPage, setBookingPage] =
+    useState(1);
+
+  const [appliedBookingFilters, setAppliedBookingFilters] =
+    useState({
+      startDate: "",
+      endDate: "",
+      paymentStatus: ""
+    });
+
+  const [bookingLoading, setBookingLoading] =
+    useState(false);
+
 
   async function load(
     filters?: {
       startDate?: string;
       endDate?: string;
       paymentStatus?: string;
-    }
+    },
+    page = 1
   ) {
     const params =
       new URLSearchParams();
+
+    params.set("page", String(page));
 
     if (filters?.startDate) {
       params.set(
@@ -217,11 +242,7 @@ export default function AdminConsole() {
       );
     }
 
-    if (
-      filters?.paymentStatus &&
-      filters.paymentStatus !==
-      "NOT_REQUIRED"
-    ) {
+    if (filters?.paymentStatus) {
       params.set(
         "paymentStatus",
         filters.paymentStatus
@@ -252,30 +273,35 @@ export default function AdminConsole() {
       );
     }
 
-    let bookings: AdminBooking[] =
-      data.bookings || [];
-
-    if (
-      filters?.paymentStatus ===
-      "NOT_REQUIRED"
-    ) {
-      bookings =
-        bookings.filter(
-          (booking) =>
-            booking.payment === null
-        );
-    }
-
     setSlots(
       availabilityData.availability || []
     );
 
-    setOperations({
-      ...data,
-      bookings
-    });
+    setOperations(data);
+    setBookingPage(data.bookingPagination.page);
   }
   useEffect(() => { load().catch(() => setError("Could not load the operations view.")); }, []);
+
+  async function changeBookingPage(nextPage: number) {
+    if (
+      bookingLoading ||
+      nextPage < 1 ||
+      nextPage > (operations?.bookingPagination.totalPages ?? 1)
+    ) {
+      return;
+    }
+
+    setBookingLoading(true);
+    setError("");
+
+    try {
+      await load(appliedBookingFilters, nextPage);
+    } catch {
+      setError("Could not load booking page.");
+    } finally {
+      setBookingLoading(false);
+    }
+  }
 
   async function removeSlot(id: string) {
     setMessage("");
@@ -662,8 +688,8 @@ export default function AdminConsole() {
     ["enquiries", `Enquiries${newEnquiryCount > 0 ? ` (${newEnquiryCount} new)` : ""}`],
     ["users", `Users (${operations.users.length})`],
     ["catalog", "Programs"],
-    ["content", "Content"],
-    ["availability", "Add availability"],
+    ["recorded-sessions", "Upload Recorded Sessions"],
+    ["availability", "Manage availability"],
     ["bookings", "Bookings & payments"],
     ["reviews", "Reviews & testimonials"],
     ["audit", "Activity log"],
@@ -673,9 +699,14 @@ export default function AdminConsole() {
     <div><p className="eyebrow">Administrator operations</p><h1 className="mt-3 font-display text-5xl">Run the coaching practice</h1><p className="mt-4 max-w-3xl leading-7 text-ink/65">Operational states are explicit and recoverable in demo mode. Provider-backed deployments can replace these in-memory adapters with Prisma repositories and notification workers.</p></div>
     <div className="mt-8 flex gap-2 overflow-x-auto border-b border-ink/10 pb-3" role="tablist">{nav.map(([id, label]) => <button key={id} onClick={() => setSection(id)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ${section === id ? "bg-moss text-white" : "bg-sand text-ink/70"}`}>{label}</button>)}</div>
     {message && <p role="status" className="mt-6 rounded-xl bg-mist px-4 py-3 text-sm text-moss">{message}</p>}{error && <p role="alert" className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
+        {section === "recorded-sessions" && (
+      <section className="mt-10">
+        <RecordedSessionAdmin />
+      </section>
+    )}
     {section === "overview" && <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{[
       ["Users", operations.users.length],
-      ["Bookings", operations.bookings.length],
+      ["Bookings", operations.bookingPagination.totalBookings],
       [
         "Payments",
         operations.bookings.filter(
@@ -1263,16 +1294,13 @@ export default function AdminConsole() {
               onClick={() => {
                 setError("");
 
-                load({
-                  startDate:
-                    bookingStartDate,
-
-                  endDate:
-                    bookingEndDate,
-
-                  paymentStatus:
-                    bookingPaymentStatus
-                }).catch(() =>
+                const filters = {
+                  startDate: bookingStartDate,
+                  endDate: bookingEndDate,
+                  paymentStatus: bookingPaymentStatus
+                };
+                setAppliedBookingFilters(filters);
+                load(filters, 1).catch(() =>
                   setError(
                     "Could not filter bookings."
                   )
@@ -1290,8 +1318,13 @@ export default function AdminConsole() {
                 setBookingEndDate("");
                 setBookingPaymentStatus("");
                 setError("");
-
-                load().catch(() =>
+                const emptyFilters = {
+                  startDate: "",
+                  endDate: "",
+                  paymentStatus: ""
+                };
+                setAppliedBookingFilters(emptyFilters);
+                load(emptyFilters, 1).catch(() =>
                   setError(
                     "Could not reload bookings."
                   )
@@ -1610,16 +1643,7 @@ export default function AdminConsole() {
                                 "Booking cancelled."
                               );
 
-                              await load({
-                                startDate:
-                                  bookingStartDate,
-
-                                endDate:
-                                  bookingEndDate,
-
-                                paymentStatus:
-                                  bookingPaymentStatus
-                              });
+                              await load(appliedBookingFilters, bookingPage);
                             }}
                           >
                             Cancel
@@ -1633,6 +1657,31 @@ export default function AdminConsole() {
             </tbody>
           </table>
         </div>
+        {operations.bookingPagination && (
+          <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-ink/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-ink/60">
+              {operations.bookingPagination.totalBookings === 0
+                ? "Showing 0 bookings"
+                : `Showing ${(bookingPage - 1) * operations.bookingPagination.pageSize + 1}–${Math.min(bookingPage * operations.bookingPagination.pageSize, operations.bookingPagination.totalBookings)} of ${operations.bookingPagination.totalBookings} bookings`}
+            </p>
+            <div className="flex items-center gap-3">
+              <button type="button" disabled={bookingPage <= 1 || bookingLoading}
+                onClick={() => changeBookingPage(bookingPage - 1)}
+                className="button-secondary disabled:cursor-not-allowed disabled:opacity-40">
+                Previous
+              </button>
+              <span className="text-sm font-semibold text-ink">
+                Page {bookingPage} of {operations.bookingPagination.totalPages}
+              </span>
+              <button type="button"
+                disabled={bookingPage >= operations.bookingPagination.totalPages || bookingLoading}
+                onClick={() => changeBookingPage(bookingPage + 1)}
+                className="button-primary disabled:cursor-not-allowed disabled:opacity-40">
+                {bookingLoading ? "Loading..." : "Next"}
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     )}
     {section === "reviews" && (

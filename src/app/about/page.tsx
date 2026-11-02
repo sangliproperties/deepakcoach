@@ -11,15 +11,88 @@ const principles = [
 export default function AboutPage() {
   return (
     <>
-      <section className="bg-sand">
-        <div className="mx-auto max-w-6xl px-5 py-16 lg:px-8 lg:py-24">
-          <p className="eyebrow">About Deepak Khot</p>
-          <div className="mt-5 grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
-            <h1 className="max-w-4xl font-display text-5xl leading-[1.05] sm:text-6xl">A grounded space to understand yourself and move forward with purpose.</h1>
-            <p className="max-w-xl text-lg leading-8 text-ink/70">Deepak Khot&apos;s coaching practice is built around thoughtful questions, practical reflection, and the belief that meaningful change begins with an honest conversation.</p>
-          </div>
+     <section className="relative overflow-hidden bg-sand">
+  {/* Subtle background decoration */}
+  <div className="pointer-events-none absolute -right-24 -top-32 h-96 w-96 rounded-full bg-moss/5 blur-3xl" />
+  <div className="pointer-events-none absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-coral/10 blur-3xl" />
+
+  <div className="relative mx-auto max-w-6xl px-5 py-16 sm:py-20 lg:px-8 lg:py-24">
+    <div className="grid items-center gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16">
+
+      {/* Left column */}
+      <div>
+        <div className="mb-7 flex items-center gap-3">
+          <span className="h-px w-10 bg-moss" />
+          <p className="eyebrow">ABOUT DEEPAK KHOT</p>
         </div>
-      </section>
+
+        <h1 className="max-w-2xl font-display text-4xl leading-[1.13] tracking-tight text-ink sm:text-5xl lg:text-[3.35rem]">
+          A space to find clarity,
+          <span className="block text-moss">
+            grow with confidence,
+          </span>
+          and move forward.
+        </h1>
+
+        <p className="mt-7 max-w-lg text-base leading-8 text-ink/70 sm:text-lg">
+          Meaningful change begins with understanding yourself.
+          Discover a thoughtful, practical approach to personal
+          growth, built around honest conversations and purposeful action.
+        </p>
+
+        <div className="mt-9 flex flex-wrap items-center gap-4">
+          <Link
+            href="/book"
+            className="inline-flex items-center justify-center rounded-full bg-moss px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-moss/90"
+          >
+            Start your journey
+            <span className="ml-2" aria-hidden="true">→</span>
+          </Link>
+
+          <Link
+            href="/programs"
+            className="inline-flex items-center justify-center rounded-full border border-moss/25 px-7 py-3.5 text-sm font-semibold text-moss transition-colors hover:bg-moss/5"
+          >
+            Explore programs
+          </Link>
+        </div>
+      </div>
+
+      {/* Right column */}
+      <div className="relative">
+        <div className="rounded-[2rem] border border-moss/10 bg-white/75 p-8 shadow-soft backdrop-blur-sm sm:p-10">
+
+          <span className="font-display text-6xl leading-none text-coral">
+            “
+          </span>
+
+          <h2 className="mt-2 font-display text-2xl leading-snug text-ink sm:text-3xl">
+            Real growth starts with an honest conversation.
+          </h2>
+
+          <div className="mt-6 h-px w-14 bg-coral" />
+
+          <p className="mt-6 text-base leading-8 text-ink/70">
+            Deepak Khot&apos;s coaching practice creates a supportive
+            environment to reflect, understand what truly matters,
+            and take meaningful steps toward the life you want.
+          </p>
+
+          <div className="mt-8 border-t border-moss/10 pt-5">
+            <p className="text-sm font-semibold text-moss">
+              DEEPAK KHOT
+            </p>
+            <p className="mt-1 text-sm text-ink/60">
+              Life Coaching & Personal Development
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
 
       <section className="mx-auto max-w-6xl px-5 py-20 lg:px-8">
         <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">

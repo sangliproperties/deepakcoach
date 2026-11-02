@@ -1,16 +1,15 @@
+
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, type PaymentStatus } from "@prisma/client";
 import {
   listDatabaseUsers,
-  updateDatabaseUserRole
+  updateDatabaseUserRole,
 } from "@/lib/auth-store";
 import {
   getCancellationPolicy,
-  listReviews,
   listTestimonials,
-  moderateReview,
   moderateTestimonial,
   updateCancellationPolicy,
   addTestimonial,
@@ -21,17 +20,12 @@ import {
   removeYoutubeSession,
   updateTestimonial,
   listEnquiries,
-  markEnquiryRead
+  markEnquiryRead,
 } from "@/lib/demo-store";
-
 import {
-  listAdminBookings
+  listAdminBookings,
+  countAdminBookings,
 } from "@/lib/booking-store";
-
-import type {
-  PaymentStatus
-} from "@prisma/client";
-
 import { jsonError } from "@/lib/http";
 
 async function requireAdmin() {
@@ -43,120 +37,106 @@ export async function GET(request: Request) {
   const admin = await requireAdmin();
 
   if (!admin) {
-    return jsonError(
-      "Administrator access required.",
-      403
-    );
+    return jsonError("Administrator access required.", 403);
   }
 
   const url = new URL(request.url);
+  const pageParam = Number(url.searchParams.get("page") ?? "1");
 
-  const startDateParam =
-    url.searchParams.get("startDate");
+  const page =
+    Number.isSafeInteger(pageParam) && pageParam > 0
+      ? Math.min(pageParam, 1000000)
+      : 1;
 
-  const endDateParam =
-    url.searchParams.get("endDate");
+  const pageSize = 20;
 
-  const paymentStatusParam =
-    url.searchParams.get("paymentStatus");
+  const startDateParam = url.searchParams.get("startDate");
+  const endDateParam = url.searchParams.get("endDate");
+  const paymentStatusParam = url.searchParams.get("paymentStatus");
 
   let startDate: Date | undefined;
   let endDate: Date | undefined;
+  let paymentStatus: PaymentStatus | undefined;
 
-  let paymentStatus:
-    | PaymentStatus
-    | undefined;
-
-  // Start Date:
-  // Include meetings from 00:00 on this date.
   if (startDateParam) {
-    const parsed = new Date(
-      `${startDateParam}T00:00:00`
-    );
-
+    const parsed = new Date(`${startDateParam}T00:00:00`);
     if (!Number.isNaN(parsed.getTime())) {
       startDate = parsed;
     }
   }
 
-  // End Date:
-  // Convert the selected end date to
-  // midnight of the following day.
   if (endDateParam) {
-    const parsed = new Date(
-      `${endDateParam}T00:00:00`
-    );
-
+    const parsed = new Date(`${endDateParam}T00:00:00`);
     if (!Number.isNaN(parsed.getTime())) {
-      parsed.setDate(
-        parsed.getDate() + 1
-      );
-
+      parsed.setDate(parsed.getDate() + 1);
       endDate = parsed;
     }
   }
 
-  const validPaymentStatuses:
-    PaymentStatus[] = [
-      "CREATED",
-      "PENDING",
-      "PAID",
-      "FAILED",
-      "CANCELLED"
-    ];
+  const validPaymentStatuses: PaymentStatus[] = [
+    "CREATED",
+    "PENDING",
+    "PAID",
+    "FAILED",
+    "CANCELLED",
+  ];
 
   if (
     paymentStatusParam &&
-    validPaymentStatuses.includes(
-      paymentStatusParam as PaymentStatus
-    )
+    validPaymentStatuses.includes(paymentStatusParam as PaymentStatus)
   ) {
-    paymentStatus =
-      paymentStatusParam as PaymentStatus;
+    paymentStatus = paymentStatusParam as PaymentStatus;
   }
 
-  const users =
-    await listDatabaseUsers();
+  const users = await listDatabaseUsers();
 
-  const bookings =
-    await listAdminBookings({
-      startDate,
-      endDate,
-      paymentStatus
-    });
+  const noPayment = paymentStatusParam === "NOT_REQUIRED";
+
+  const bookingFilters = {
+    startDate,
+    endDate,
+    paymentStatus,
+    noPayment,
+  };
+
+  const [bookings, totalBookings] = await Promise.all([
+    listAdminBookings({
+      ...bookingFilters,
+      page,
+      pageSize,
+    }),
+    countAdminBookings(bookingFilters),
+  ]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalBookings / pageSize)
+  );
 
   const programs = await prisma.program.findMany({
-    orderBy: {
-      createdAt: "asc"
-    }
+    orderBy: { createdAt: "asc" },
   });
 
   const reviews = await prisma.review.findMany({
-    orderBy: {
-      createdAt: "desc"
-    }
+    orderBy: { createdAt: "desc" },
   });
 
   return Response.json({
     users,
     programs,
     bookings,
+    bookingPagination: {
+      page,
+      pageSize,
+      totalBookings,
+      totalPages,
+    },
     reviews,
-
-    testimonials:
-      listTestimonials(),
-
-    youtubeSessions:
-      listYoutubeSessions(),
-
-    auditLogs:
-      listAuditLogs(),
-
-    enquiries:
-      listEnquiries(),
-
-    cancellationPolicy:
-      getCancellationPolicy()
+    testimonials: listTestimonials(),
+    youtubeSessions: listYoutubeSessions(),
+    auditLogs: listAuditLogs(),
+    enquiries: listEnquiries(),
+    cancellationPolicy: getCancellationPolicy(),
   });
 }
 
@@ -184,16 +164,47 @@ export async function POST(request: Request) {
     format: z.string().trim().min(2).max(100).optional(),
     inclusions: z.array(z.string().trim().min(1).max(200)).max(10).optional(),
     eligibility: z.string().trim().min(2).max(500).optional(),
-    expectations: z.string().trim().min(2).max(500).optional()
+    expectations: z.string().trim().min(2).max(500).optional(),
   }).safeParse(await request.json());
-  if (!parsed.success) return jsonError("Please provide valid content details.");
+
+  if (!parsed.success) {
+    return jsonError("Please provide valid content details.");
+  }
+
   const data = parsed.data;
 
-  if (data.contentType === "youtube-session" && data.title && data.description && data.category && data.duration) {
-    return Response.json({ youtubeSession: addYoutubeSession(admin.id, { title: data.title, description: data.description, category: data.category, duration: data.duration, videoId: data.videoId || undefined }) }, { status: 201 });
+  if (
+    data.contentType === "youtube-session" &&
+    data.title &&
+    data.description &&
+    data.category &&
+    data.duration
+  ) {
+    return Response.json({
+      youtubeSession: addYoutubeSession(admin.id, {
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        duration: data.duration,
+        videoId: data.videoId || undefined,
+      }),
+    }, { status: 201 });
   }
-  if (data.contentType === "testimonial" && data.quote && data.name && data.detail) {
-    return Response.json({ testimonial: addTestimonial(admin.id, { quote: data.quote, name: data.name, detail: data.detail, status: "DRAFT" }) }, { status: 201 });
+
+  if (
+    data.contentType === "testimonial" &&
+    data.quote &&
+    data.name &&
+    data.detail
+  ) {
+    return Response.json({
+      testimonial: addTestimonial(admin.id, {
+        quote: data.quote,
+        name: data.name,
+        detail: data.detail,
+        status: "DRAFT",
+      }),
+    }, { status: 201 });
   }
 
   if (
@@ -224,14 +235,11 @@ export async function POST(request: Request) {
           eligibility: data.eligibility,
           expectations: data.expectations,
           featured: false,
-          active: true
-        }
+          active: true,
+        },
       });
 
-      return Response.json(
-        { program },
-        { status: 201 }
-      );
+      return Response.json({ program }, { status: 201 });
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -244,11 +252,7 @@ export async function POST(request: Request) {
       }
 
       console.error("Program creation failed:", error);
-
-      return jsonError(
-        "Could not save program to database.",
-        500
-      );
+      return jsonError("Could not save program to database.", 500);
     }
   }
 
@@ -257,7 +261,11 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const admin = await requireAdmin();
-  if (!admin) return jsonError("Administrator access required.", 403);
+
+  if (!admin) {
+    return jsonError("Administrator access required.", 403);
+  }
+
   const parsed = z.object({
     action: z.enum([
       "review",
@@ -265,7 +273,7 @@ export async function PATCH(request: Request) {
       "user-role",
       "program",
       "policy",
-      "enquiry-read"
+      "enquiry-read",
     ]),
     id: z.string().optional(),
     status: z.string().optional(),
@@ -274,31 +282,24 @@ export async function PATCH(request: Request) {
     enabled: z.boolean().optional(),
     minimumHours: z.number().int().min(0).max(168).optional(),
     allowReschedule: z.boolean().optional(),
-    rescheduleLimit: z
-      .number()
-      .int()
-      .min(0)
-      .max(5)
-      .optional()
-
+    rescheduleLimit: z.number().int().min(0).max(5).optional(),
   }).safeParse(await request.json());
-  if (!parsed.success) return jsonError("The requested operation is invalid.");
+
+  if (!parsed.success) {
+    return jsonError("The requested operation is invalid.");
+  }
+
   const data = parsed.data;
 
   if (
     data.action === "review" &&
     data.id &&
-    (data.status === "APPROVED" ||
-      data.status === "REJECTED")
+    (data.status === "APPROVED" || data.status === "REJECTED")
   ) {
     try {
       const review = await prisma.review.update({
-        where: {
-          id: data.id
-        },
-        data: {
-          status: data.status
-        }
+        where: { id: data.id },
+        data: { status: data.status },
       });
 
       return Response.json({ review });
@@ -307,38 +308,35 @@ export async function PATCH(request: Request) {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2025"
       ) {
-        return jsonError(
-          "Review was not found.",
-          404
-        );
+        return jsonError("Review was not found.", 404);
       }
 
-      console.error(
-        "Review moderation failed:",
-        error
-      );
-
-      return jsonError(
-        "Could not update review status.",
-        500
-      );
+      console.error("Review moderation failed:", error);
+      return jsonError("Could not update review status.", 500);
     }
   }
 
-  if (data.action === "testimonial" && data.id && ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(data.status || "")) return Response.json({ testimonial: moderateTestimonial(admin.id, data.id, data.status as "DRAFT" | "PUBLISHED" | "ARCHIVED") });
+  if (
+    data.action === "testimonial" &&
+    data.id &&
+    ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(data.status || "")
+  ) {
+    return Response.json({
+      testimonial: moderateTestimonial(
+        admin.id,
+        data.id,
+        data.status as "DRAFT" | "PUBLISHED" | "ARCHIVED"
+      ),
+    });
+  }
+
   if (
     data.action === "user-role" &&
     data.id &&
     data.role
   ) {
-    const user = await updateDatabaseUserRole(
-      data.id,
-      data.role
-    );
-
-    return Response.json({
-      user
-    });
+    const user = await updateDatabaseUserRole(data.id, data.role);
+    return Response.json({ user });
   }
 
   if (
@@ -348,12 +346,8 @@ export async function PATCH(request: Request) {
   ) {
     try {
       const program = await prisma.program.update({
-        where: {
-          id: data.id
-        },
-        data: {
-          active: data.active
-        }
+        where: { id: data.id },
+        data: { active: data.active },
       });
 
       return Response.json({ program });
@@ -370,7 +364,17 @@ export async function PATCH(request: Request) {
     }
   }
 
-  if (data.action === "policy") return Response.json({ cancellationPolicy: updateCancellationPolicy({ enabled: data.enabled, minimumHours: data.minimumHours, allowReschedule: data.allowReschedule, rescheduleLimit: data.rescheduleLimit }) });
+  if (data.action === "policy") {
+    return Response.json({
+      cancellationPolicy: updateCancellationPolicy({
+        enabled: data.enabled,
+        minimumHours: data.minimumHours,
+        allowReschedule: data.allowReschedule,
+        rescheduleLimit: data.rescheduleLimit,
+      }),
+    });
+  }
+
   if (data.action === "enquiry-read" && data.id) {
     const enquiry = markEnquiryRead(data.id);
 
@@ -380,205 +384,84 @@ export async function PATCH(request: Request) {
 
     return Response.json({ enquiry });
   }
+
   return jsonError("The requested operation is invalid.");
 }
 
-export async function PUT(
-  request: Request
-) {
-  const admin =
-    await requireAdmin();
+export async function PUT(request: Request) {
+  const admin = await requireAdmin();
 
   if (!admin) {
-    return jsonError(
-      "Administrator access required.",
-      403
-    );
+    return jsonError("Administrator access required.", 403);
   }
 
   const parsed = z.object({
     contentType: z.enum([
       "youtube-session",
       "testimonial",
-      "program"
+      "program",
     ]),
-
     id: z.string().min(1),
-
-    // YouTube session
-    title: z.string()
-      .trim()
-      .min(2)
-      .max(120)
-      .optional(),
-
-    description: z.string()
-      .trim()
-      .min(2)
-      .max(1000)
-      .optional(),
-
-    category: z.string()
-      .trim()
-      .min(2)
-      .max(80)
-      .optional(),
-
-    duration: z.string()
-      .trim()
-      .min(1)
-      .max(40)
-      .optional(),
-
-    videoId: z.string()
-      .trim()
-      .max(30)
-      .optional(),
-
-    // Testimonial
-    quote: z.string()
-      .trim()
-      .min(2)
-      .max(1000)
-      .optional(),
-
-    name: z.string()
-      .trim()
-      .min(2)
-      .max(120)
-      .optional(),
-
-    detail: z.string()
-      .trim()
-      .min(2)
-      .max(200)
-      .optional(),
-
-    status: z.enum([
-      "DRAFT",
-      "PUBLISHED",
-      "ARCHIVED"
-    ]).optional(),
-
-    // Program
-    slug: z.string()
-      .trim()
-      .regex(/^[a-z0-9-]+$/)
-      .optional(),
-
-    tagline: z.string()
-      .trim()
-      .min(2)
-      .max(200)
-      .optional(),
-
-    durationMins: z.number()
-      .int()
-      .min(15)
-      .max(480)
-      .optional(),
-
-    priceInr: z.number()
-      .int()
-      .min(0)
-      .max(1000000)
-      .optional(),
-
-    format: z.string()
-      .trim()
-      .min(2)
-      .max(100)
-      .optional(),
-
-    inclusions: z.array(
-      z.string()
-        .trim()
-        .min(1)
-        .max(200)
-    )
-      .max(10)
-      .optional(),
-
-    eligibility: z.string()
-      .trim()
-      .min(2)
-      .max(500)
-      .optional(),
-
-    expectations: z.string()
-      .trim()
-      .min(2)
-      .max(500)
-      .optional()
-  }).safeParse(
-    await request.json()
-  );
+    title: z.string().trim().min(2).max(120).optional(),
+    description: z.string().trim().min(2).max(1000).optional(),
+    category: z.string().trim().min(2).max(80).optional(),
+    duration: z.string().trim().min(1).max(40).optional(),
+    videoId: z.string().trim().max(30).optional(),
+    quote: z.string().trim().min(2).max(1000).optional(),
+    name: z.string().trim().min(2).max(120).optional(),
+    detail: z.string().trim().min(2).max(200).optional(),
+    status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
+    slug: z.string().trim().regex(/^[a-z0-9-]+$/).optional(),
+    tagline: z.string().trim().min(2).max(200).optional(),
+    durationMins: z.number().int().min(15).max(480).optional(),
+    priceInr: z.number().int().min(0).max(1000000).optional(),
+    format: z.string().trim().min(2).max(100).optional(),
+    inclusions: z.array(z.string().trim().min(1).max(200)).max(10).optional(),
+    eligibility: z.string().trim().min(2).max(500).optional(),
+    expectations: z.string().trim().min(2).max(500).optional(),
+  }).safeParse(await request.json());
 
   if (!parsed.success) {
-    return jsonError(
-      "Please provide valid content details."
-    );
+    return jsonError("Please provide valid content details.");
   }
 
   const data = parsed.data;
 
-  // YouTube session
   if (
-    data.contentType ===
-    "youtube-session" &&
+    data.contentType === "youtube-session" &&
     data.title &&
     data.description &&
     data.category &&
     data.duration
   ) {
     return Response.json({
-      youtubeSession:
-        updateYoutubeSession(
-          admin.id,
-          data.id,
-          {
-            title: data.title,
-            description:
-              data.description,
-            category:
-              data.category,
-            duration:
-              data.duration,
-            videoId:
-              data.videoId ||
-              undefined
-          }
-        )
+      youtubeSession: updateYoutubeSession(admin.id, data.id, {
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        duration: data.duration,
+        videoId: data.videoId || undefined,
+      }),
     });
   }
 
-  // Testimonial
   if (
-    data.contentType ===
-    "testimonial" &&
+    data.contentType === "testimonial" &&
     data.quote &&
     data.name &&
     data.detail &&
     data.status
   ) {
     return Response.json({
-      testimonial:
-        updateTestimonial(
-          admin.id,
-          data.id,
-          {
-            quote: data.quote,
-            name: data.name,
-            detail: data.detail,
-            status: data.status
-          }
-        )
+      testimonial: updateTestimonial(admin.id, data.id, {
+        quote: data.quote,
+        name: data.name,
+        detail: data.detail,
+        status: data.status,
+      }),
     });
   }
 
-  // Program
-
-  // Program
   if (
     data.contentType === "program" &&
     data.slug &&
@@ -594,9 +477,7 @@ export async function PUT(
   ) {
     try {
       const program = await prisma.program.update({
-        where: {
-          id: data.id
-        },
+        where: { id: data.id },
         data: {
           slug: data.slug,
           title: data.title,
@@ -607,8 +488,8 @@ export async function PUT(
           format: data.format,
           inclusions: data.inclusions,
           eligibility: data.eligibility,
-          expectations: data.expectations
-        }
+          expectations: data.expectations,
+        },
       });
 
       return Response.json({ program });
@@ -622,33 +503,37 @@ export async function PUT(
         }
 
         if (error.code === "P2025") {
-          return jsonError(
-            "Program was not found.",
-            404
-          );
+          return jsonError("Program was not found.", 404);
         }
       }
 
       console.error("Program update failed:", error);
-
-      return jsonError(
-        "Could not update program in database.",
-        500
-      );
+      return jsonError("Could not update program in database.", 500);
     }
   }
 
-
-  return jsonError(
-    "Please provide all required content details."
-  );
+  return jsonError("Please provide all required content details.");
 }
 
 export async function DELETE(request: Request) {
   const admin = await requireAdmin();
-  if (!admin) return jsonError("Administrator access required.", 403);
-  const parsed = z.object({ contentType: z.enum(["youtube-session"]), id: z.string().min(1) }).safeParse(await request.json());
-  if (!parsed.success) return jsonError("The requested deletion is invalid.");
-  if (!removeYoutubeSession(admin.id, parsed.data.id)) return jsonError("Content was not found.", 404);
+
+  if (!admin) {
+    return jsonError("Administrator access required.", 403);
+  }
+
+  const parsed = z.object({
+    contentType: z.enum(["youtube-session"]),
+    id: z.string().min(1),
+  }).safeParse(await request.json());
+
+  if (!parsed.success) {
+    return jsonError("The requested deletion is invalid.");
+  }
+
+  if (!removeYoutubeSession(admin.id, parsed.data.id)) {
+    return jsonError("Content was not found.", 404);
+  }
+
   return Response.json({ ok: true });
 }
