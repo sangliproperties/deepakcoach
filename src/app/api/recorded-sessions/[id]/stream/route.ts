@@ -14,7 +14,9 @@ export async function GET(
   const item = await prisma.recordedVideo.findUnique({
     where: { id: params.id },
   });
-  if (!item) return new Response(null, { status: 404 });
+  if (!item || !item.videoKey) {
+    return new Response(null, { status: 404 });
+  }
   if (
     user.role !== "ADMIN" &&
     !(await prisma.recordedPurchase.findFirst({

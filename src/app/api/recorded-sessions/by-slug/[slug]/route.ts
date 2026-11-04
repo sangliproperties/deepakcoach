@@ -1,10 +1,13 @@
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
 export async function GET(
   _request: Request,
   { params }: { params: { slug: string } },
 ) {
-  const video = await prisma.recordedVideo.findUnique({
+  const user = await getCurrentUser();
+
+  const course = await prisma.recordedVideo.findUnique({
     where: { slug: params.slug },
     select: {
       id: true,
@@ -14,19 +17,48 @@ export async function GET(
       durationMins: true,
       priceInr: true,
       active: true,
+      lectures: {
+        where: { active: true },
+        orderBy: [{ displayOrder: "asc" }, { dayNumber: "asc" }],
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          dayNumber: true,
+          displayOrder: true,
+          durationMins: true,
+        },
+      },
     },
   });
-  if (!video) return Response.json({ error: "Not found" }, { status: 404 });
-  const user = await getCurrentUser();
-  const owned =
-    user?.role === "ADMIN" ||
-    !!(
-      user &&
-      (await prisma.recordedPurchase.findFirst({
-        where: { userId: user.id, videoId: video.id, status: "PAID" },
-      }))
-    );
-  if (!video.active && !owned)
-    return Response.json({ error: "Not found" }, { status: 404 });
-  return Response.json({ session: video, owned: !!owned });
+
+  if (!course) {
+    return Response.json({ error: "Course not found" }, { status: 404 });
+  }
+
+  const isAdmin = user?.role === "ADMIN";
+
+  const purchase =
+    user && !isAdmin
+      ? await prisma.recordedPurchase.findFirst({
+          where: {
+            userId: user.id,
+            videoId: course.id,
+            status: "PAID",
+          },
+          select: { id: true },
+        })
+      : null;
+
+  const owned = isAdmin || !!purchase;
+
+  if (!course.active && !owned) {
+    return Response.json({ error: "Course not found" }, { status: 404 });
+  }
+
+  return Response.json({
+    session: course,
+    owned,
+    lectureCount: course.lectures.length,
+  });
 }

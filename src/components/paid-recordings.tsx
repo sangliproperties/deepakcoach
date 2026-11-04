@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -13,6 +12,7 @@ type Recording = {
   durationMins: number;
   priceInr: number;
   owned: boolean;
+  lectureCount: number;
 };
 
 export default function PaidRecordings() {
@@ -27,7 +27,7 @@ export default function PaidRecordings() {
     async function load() {
       try {
         const response = await fetch("/api/recorded-sessions", {
-          cache: "no-store"
+          cache: "no-store",
         });
 
         if (!response.ok) {
@@ -38,9 +38,7 @@ export default function PaidRecordings() {
         setSessions(data.sessions ?? []);
       } catch (err) {
         setError(
-          err instanceof Error
-            ? err.message
-            : "Could not load paid sessions."
+          err instanceof Error ? err.message : "Could not load paid sessions.",
         );
       } finally {
         setLoading(false);
@@ -57,13 +55,11 @@ export default function PaidRecordings() {
     try {
       const response = await fetch(
         `/api/recorded-sessions/${session.id}/purchase`,
-        { method: "POST" }
+        { method: "POST" },
       );
 
       if (response.status === 401) {
-        router.push(
-          `/auth?next=${encodeURIComponent("/paid-sessions")}`
-        );
+        router.push(`/auth?next=${encodeURIComponent("/paid-sessions")}`);
         return;
       }
 
@@ -84,33 +80,28 @@ export default function PaidRecordings() {
 
       const confirmed = window.confirm(
         `DEMO CHECKOUT ONLY\n\n` +
-        `Session: ${session.title}\n` +
-        `Amount: ₹${data.amountInr}\n\n` +
-        `No real money will be charged.\n` +
-        `Confirm this test purchase?`
+          `Session: ${session.title}\n` +
+          `Amount: ₹${data.amountInr}\n\n` +
+          `No real money will be charged.\n` +
+          `Confirm this test purchase?`,
       );
 
       if (!confirmed) return;
 
-      const confirmation = await fetch(
-        "/api/recorded-sessions/demo-confirm",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            purchaseId: data.purchaseId
-          })
-        }
-      );
+      const confirmation = await fetch("/api/recorded-sessions/demo-confirm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          purchaseId: data.purchaseId,
+        }),
+      });
 
       const result = await confirmation.json();
 
       if (!confirmation.ok) {
-        throw new Error(
-          result.error || "Demo confirmation failed."
-        );
+        throw new Error(result.error || "Demo confirmation failed.");
       }
 
       router.push(`/paid-sessions/${session.slug}`);
@@ -119,7 +110,7 @@ export default function PaidRecordings() {
       setError(
         err instanceof Error
           ? err.message
-          : "Could not complete demo purchase."
+          : "Could not complete demo purchase.",
       );
     } finally {
       setBusyId(null);
@@ -130,20 +121,15 @@ export default function PaidRecordings() {
     <main className="mx-auto max-w-6xl px-5 py-16 lg:px-8">
       <p className="eyebrow">Learn at your own pace</p>
 
-      <h1 className="mt-3 font-display text-5xl">
-        Paid Recorded Sessions
-      </h1>
+      <h1 className="mt-3 font-display text-5xl">Paid Recorded Courses</h1>
 
       <p className="mt-4 max-w-2xl text-ink/65">
-        Explore recorded coaching sessions and access your
-        purchased recordings whenever you need them.
+        Explore recorded coaching sessions and access your purchased recordings
+        whenever you need them.
       </p>
 
       {error && (
-        <p
-          role="alert"
-          className="mt-6 rounded-xl bg-red-50 p-4 text-red-800"
-        >
+        <p role="alert" className="mt-6 rounded-xl bg-red-50 p-4 text-red-800">
           {error}
         </p>
       )}
@@ -168,16 +154,15 @@ export default function PaidRecordings() {
               />
 
               <div className="space-y-4 p-5">
-                <h2 className="font-display text-2xl">
-                  {session.title}
-                </h2>
+                <h2 className="font-display text-2xl">{session.title}</h2>
 
-                <p className="text-sm text-ink/65">
-                  {session.description}
-                </p>
+                <p className="text-sm text-ink/65">{session.description}</p>
 
                 <div className="flex justify-between text-sm font-semibold">
-                  <span>{session.durationMins} minutes</span>
+                  <span>
+                    {session.lectureCount} Lectures · {session.durationMins}{" "}
+                    minutes
+                  </span>
                   <span>₹{session.priceInr.toLocaleString("en-IN")}</span>
                 </div>
 
@@ -186,7 +171,7 @@ export default function PaidRecordings() {
                     href={`/paid-sessions/${session.slug}`}
                     className="button-primary inline-flex"
                   >
-                    Watch Session
+                    Watch Course
                   </Link>
                 ) : (
                   <button
@@ -195,9 +180,7 @@ export default function PaidRecordings() {
                     disabled={busyId !== null}
                     className="button-primary"
                   >
-                    {busyId === session.id
-                      ? "Processing..."
-                      : "Get Session"}
+                    {busyId === session.id ? "Processing..." : "Get Course"}
                   </button>
                 )}
               </div>

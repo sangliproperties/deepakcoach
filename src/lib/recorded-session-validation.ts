@@ -16,3 +16,17 @@ export const recordedSchema = z.object({
 
   active: z.boolean().default(false),
 });
+
+export const recordedLectureSchema = z.object({
+  title: z.string().trim().min(2).max(120),
+
+  description: z.string().trim().max(2000).default(""),
+
+  dayNumber: z.coerce.number().int().min(1).max(10000),
+
+  displayOrder: z.coerce.number().int().min(1).max(10000),
+
+  durationMins: z.coerce.number().int().min(1).max(10000),
+
+  active: z.boolean().default(true),
+});
