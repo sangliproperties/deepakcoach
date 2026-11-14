@@ -96,7 +96,7 @@ export function ContactForm() {
                 id="message"
                 name="message"
                 required
-                rows={6}
+                rows={9}
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
                 className="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3"

@@ -8,23 +8,18 @@ import type {
   Review,
   Testimonial,
   YouTubeSession,
-  Enquiry
+  Enquiry,
 } from "@/lib/types";
 
-type AdminAvailabilitySlot =
-  AvailabilitySlot & {
-    hasBooking?: boolean;
-  };
+type AdminAvailabilitySlot = AvailabilitySlot & {
+  hasBooking?: boolean;
+};
 
 type AdminBooking = {
   id: string;
   reference: string;
 
-  status:
-  | "PENDING"
-  | "CONFIRMED"
-  | "CANCELLED"
-  | "FAILED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "FAILED";
 
   createdAt: string;
   cancelledAt: string | null;
@@ -59,12 +54,7 @@ type AdminBooking = {
     id: string;
     amountInr: number;
 
-    status:
-    | "CREATED"
-    | "PENDING"
-    | "PAID"
-    | "FAILED"
-    | "CANCELLED";
+    status: "CREATED" | "PENDING" | "PAID" | "FAILED" | "CANCELLED";
 
     providerOrderId: string | null;
     providerPaymentId: string | null;
@@ -99,41 +89,44 @@ type Operations = {
   reviews: Review[];
   testimonials: Testimonial[];
   youtubeSessions: YouTubeSession[];
-  auditLogs: { id: string; actor: string; action: string; entity: string; entityId?: string; createdAt: string }[];
+  auditLogs: {
+    id: string;
+    actor: string;
+    action: string;
+    entity: string;
+    entityId?: string;
+    createdAt: string;
+  }[];
   enquiries: Enquiry[];
   cancellationPolicy: CancellationPolicy;
 };
 
 function display(value: string) {
-  return new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
-function displayMeetingDate(
-  value: string
-) {
-  return new Intl.DateTimeFormat(
-    "en-IN",
-    {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit"
-    }
-  ).format(new Date(value));
+function displayMeetingDate(value: string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
-function displayBookedOn(
-  value: string
-) {
-  return new Intl.DateTimeFormat(
-    "en-IN",
-    {
-      day: "numeric",
-      month: "short",
-      year: "numeric"
-    }
-  ).format(new Date(value));
+function displayBookedOn(value: string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 const emptyProgramForm = {
@@ -146,74 +139,55 @@ const emptyProgramForm = {
   format: "Online, one-to-one",
   inclusions: "",
   eligibility: "",
-  expectations: ""
+  expectations: "",
 };
 
 export default function AdminConsole() {
-  const [slots, setSlots] =
-    useState<AdminAvailabilitySlot[]>([]);
+  const [slots, setSlots] = useState<AdminAvailabilitySlot[]>([]);
   const [operations, setOperations] = useState<Operations | null>(null);
   const [section, setSection] = useState("overview");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [youtubeForm, setYoutubeForm] = useState({ title: "", description: "", category: "", duration: "Session", videoId: "" });
-  const [storyForm, setStoryForm] = useState({ quote: "", name: "", detail: "" });
-  const [
-    editingTestimonialId,
-    setEditingTestimonialId
-  ] = useState<string | null>(null);
-
-  const [
-    testimonialEditForm,
-    setTestimonialEditForm
-  ] = useState({
+  const [youtubeForm, setYoutubeForm] = useState({
+    title: "",
+    description: "",
+    category: "",
+    duration: "Session",
+    videoId: "",
+  });
+  const [storyForm, setStoryForm] = useState({
     quote: "",
     name: "",
     detail: "",
-    status: "DRAFT" as
-      | "DRAFT"
-      | "PUBLISHED"
-      | "ARCHIVED"
   });
-  const [
-    programForm,
-    setProgramForm
-  ] = useState(
-    emptyProgramForm
-  );
-  const [
-    editingProgramId,
-    setEditingProgramId
-  ] = useState<string | null>(null);
+  const [editingTestimonialId, setEditingTestimonialId] = useState<
+    string | null
+  >(null);
 
-  const [
-    bookingStartDate,
-    setBookingStartDate
-  ] = useState("");
+  const [testimonialEditForm, setTestimonialEditForm] = useState({
+    quote: "",
+    name: "",
+    detail: "",
+    status: "DRAFT" as "DRAFT" | "PUBLISHED" | "ARCHIVED",
+  });
+  const [programForm, setProgramForm] = useState(emptyProgramForm);
+  const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
 
-  const [
-    bookingEndDate,
-    setBookingEndDate
-  ] = useState("");
+  const [bookingStartDate, setBookingStartDate] = useState("");
 
-  const [
-    bookingPaymentStatus,
-    setBookingPaymentStatus
-  ] = useState("");
+  const [bookingEndDate, setBookingEndDate] = useState("");
 
-  const [bookingPage, setBookingPage] =
-    useState(1);
+  const [bookingPaymentStatus, setBookingPaymentStatus] = useState("");
 
-  const [appliedBookingFilters, setAppliedBookingFilters] =
-    useState({
-      startDate: "",
-      endDate: "",
-      paymentStatus: ""
-    });
+  const [bookingPage, setBookingPage] = useState(1);
 
-  const [bookingLoading, setBookingLoading] =
-    useState(false);
+  const [appliedBookingFilters, setAppliedBookingFilters] = useState({
+    startDate: "",
+    endDate: "",
+    paymentStatus: "",
+  });
 
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   async function load(
     filters?: {
@@ -221,66 +195,49 @@ export default function AdminConsole() {
       endDate?: string;
       paymentStatus?: string;
     },
-    page = 1
+    page = 1,
   ) {
-    const params =
-      new URLSearchParams();
+    const params = new URLSearchParams();
 
     params.set("page", String(page));
 
     if (filters?.startDate) {
-      params.set(
-        "startDate",
-        filters.startDate
-      );
+      params.set("startDate", filters.startDate);
     }
 
     if (filters?.endDate) {
-      params.set(
-        "endDate",
-        filters.endDate
-      );
+      params.set("endDate", filters.endDate);
     }
 
     if (filters?.paymentStatus) {
-      params.set(
-        "paymentStatus",
-        filters.paymentStatus
-      );
+      params.set("paymentStatus", filters.paymentStatus);
     }
 
-    const operationsUrl =
-      params.toString()
-        ? `/api/admin/operations?${params.toString()}`
-        : "/api/admin/operations";
+    const operationsUrl = params.toString()
+      ? `/api/admin/operations?${params.toString()}`
+      : "/api/admin/operations";
 
-    const [availability, response] =
-      await Promise.all([
-        fetch("/api/availability"),
-        fetch(operationsUrl)
-      ]);
+    const [availability, response] = await Promise.all([
+      fetch("/api/availability"),
+      fetch(operationsUrl),
+    ]);
 
-    const availabilityData =
-      await availability.json();
+    const availabilityData = await availability.json();
 
-    const data =
-      await response.json();
+    const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(
-        data.error ||
-        "Could not load operations."
-      );
+      throw new Error(data.error || "Could not load operations.");
     }
 
-    setSlots(
-      availabilityData.availability || []
-    );
+    setSlots(availabilityData.availability || []);
 
     setOperations(data);
     setBookingPage(data.bookingPagination.page);
   }
-  useEffect(() => { load().catch(() => setError("Could not load the operations view.")); }, []);
+  useEffect(() => {
+    load().catch(() => setError("Could not load the operations view."));
+  }, []);
 
   async function changeBookingPage(nextPage: number) {
     if (
@@ -307,29 +264,22 @@ export default function AdminConsole() {
     setMessage("");
     setError("");
 
-    const response =
-      await fetch(
-        `/api/availability?id=${encodeURIComponent(id)}`,
-        {
-          method: "DELETE"
-        }
-      );
+    const response = await fetch(
+      `/api/availability?id=${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+      },
+    );
 
     if (!response.ok) {
-      const data =
-        await response.json();
+      const data = await response.json();
 
-      setError(
-        data.error ||
-        "Slot could not be removed."
-      );
+      setError(data.error || "Slot could not be removed.");
 
       return;
     }
 
-    setMessage(
-      "Availability slot removed."
-    );
+    setMessage("Availability slot removed.");
 
     await load();
   }
@@ -338,140 +288,124 @@ export default function AdminConsole() {
     setMessage("");
     setError("");
 
-    const response =
-      await fetch(
-        "/api/availability",
-        {
-          method: "PATCH",
+    const response = await fetch("/api/availability", {
+      method: "PATCH",
 
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
+      headers: {
+        "Content-Type": "application/json",
+      },
 
-          body: JSON.stringify({
-            id
-          })
-        }
-      );
+      body: JSON.stringify({
+        id,
+      }),
+    });
 
-    const data =
-      await response.json();
+    const data = await response.json();
 
     if (!response.ok) {
-      setError(
-        data.error ||
-        "Slot could not be recovered."
-      );
+      setError(data.error || "Slot could not be recovered.");
 
       return;
     }
 
-    setMessage(
-      "Availability slot recovered."
-    );
+    setMessage("Availability slot recovered.");
 
     await load();
   }
 
   async function operation(body: Record<string, unknown>) {
-    setError(""); setMessage("");
-    const response = await fetch("/api/admin/operations", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/admin/operations", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     const data = await response.json();
-    if (!response.ok) { setError(data.error || "Operation failed."); return; }
-    setMessage("Changes saved."); await load();
+    if (!response.ok) {
+      setError(data.error || "Operation failed.");
+      return;
+    }
+    setMessage("Changes saved.");
+    await load();
   }
   async function createContent(body: Record<string, unknown>) {
-    setError(""); setMessage("");
-    const response = await fetch("/api/admin/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/admin/operations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     const data = await response.json();
-    if (!response.ok) { setError(data.error || "Content could not be added."); return false; }
-    setMessage("Content added."); await load();
+    if (!response.ok) {
+      setError(data.error || "Content could not be added.");
+      return false;
+    }
+    setMessage("Content added.");
+    await load();
     return true;
   }
   async function deleteYoutubeSession(id: string) {
-    setError(""); setMessage("");
-    const response = await fetch("/api/admin/operations", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentType: "youtube-session", id }) });
+    setError("");
+    setMessage("");
+    const response = await fetch("/api/admin/operations", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentType: "youtube-session", id }),
+    });
     const data = await response.json();
-    if (!response.ok) { setError(data.error || "Content could not be deleted."); return; }
-    setMessage("Content deleted."); await load();
+    if (!response.ok) {
+      setError(data.error || "Content could not be deleted.");
+      return;
+    }
+    setMessage("Content deleted.");
+    await load();
   }
 
-  async function addProgram(
-    event: FormEvent
-  ) {
+  async function addProgram(event: FormEvent) {
     event.preventDefault();
 
-    const created =
-      await createContent({
-        contentType: "program",
+    const created = await createContent({
+      contentType: "program",
 
-        ...programForm,
+      ...programForm,
 
-        durationMins:
-          Number(
-            programForm.durationMins
-          ),
+      durationMins: Number(programForm.durationMins),
 
-        priceInr:
-          Number(
-            programForm.priceInr
-          ),
+      priceInr: Number(programForm.priceInr),
 
-        inclusions:
-          programForm.inclusions
-            .split("\n")
-            .map(
-              (item) =>
-                item.trim()
-            )
-            .filter(Boolean)
-      });
+      inclusions: programForm.inclusions
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    });
 
     if (created) {
-      setProgramForm(
-        emptyProgramForm
-      );
+      setProgramForm(emptyProgramForm);
     }
   }
 
-  function startEditProgram(
-    program:
-      Operations["programs"][number]
-  ) {
-    setEditingProgramId(
-      program.id
-    );
+  function startEditProgram(program: Operations["programs"][number]) {
+    setEditingProgramId(program.id);
 
     setProgramForm({
       slug: program.slug,
       title: program.title,
       tagline: program.tagline,
-      description:
-        program.description,
+      description: program.description,
 
-      durationMins:
-        String(
-          program.durationMins
-        ),
+      durationMins: String(program.durationMins),
 
-      priceInr:
-        String(
-          program.priceInr
-        ),
+      priceInr: String(program.priceInr),
 
       format: program.format,
 
-      inclusions:
-        program.inclusions.join(
-          "\n"
-        ),
+      inclusions: program.inclusions.join("\n"),
 
-      eligibility:
-        program.eligibility,
+      eligibility: program.eligibility,
 
-      expectations:
-        program.expectations
+      expectations: program.expectations,
     });
 
     setMessage("");
@@ -481,17 +415,13 @@ export default function AdminConsole() {
   function cancelEditProgram() {
     setEditingProgramId(null);
 
-    setProgramForm(
-      emptyProgramForm
-    );
+    setProgramForm(emptyProgramForm);
 
     setMessage("");
     setError("");
   }
 
-  async function saveProgram(
-    event: FormEvent
-  ) {
+  async function saveProgram(event: FormEvent) {
     event.preventDefault();
 
     if (!editingProgramId) {
@@ -501,88 +431,56 @@ export default function AdminConsole() {
     setError("");
     setMessage("");
 
-    const response =
-      await fetch(
-        "/api/admin/operations",
-        {
-          method: "PUT",
+    const response = await fetch("/api/admin/operations", {
+      method: "PUT",
 
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
+      headers: {
+        "Content-Type": "application/json",
+      },
 
-          body: JSON.stringify({
-            contentType:
-              "program",
+      body: JSON.stringify({
+        contentType: "program",
 
-            id:
-              editingProgramId,
+        id: editingProgramId,
 
-            ...programForm,
+        ...programForm,
 
-            durationMins:
-              Number(
-                programForm
-                  .durationMins
-              ),
+        durationMins: Number(programForm.durationMins),
 
-            priceInr:
-              Number(
-                programForm
-                  .priceInr
-              ),
+        priceInr: Number(programForm.priceInr),
 
-            inclusions:
-              programForm
-                .inclusions
-                .split("\n")
-                .map(
-                  (item) =>
-                    item.trim()
-                )
-                .filter(Boolean)
-          })
-        }
-      );
+        inclusions: programForm.inclusions
+          .split("\n")
+          .map((item) => item.trim())
+          .filter(Boolean),
+      }),
+    });
 
-    const data =
-      await response.json();
+    const data = await response.json();
 
     if (!response.ok) {
-      setError(
-        data.error ||
-        "Program could not be updated."
-      );
+      setError(data.error || "Program could not be updated.");
 
       return;
     }
 
-    setMessage(
-      "Program updated successfully."
-    );
+    setMessage("Program updated successfully.");
 
     setEditingProgramId(null);
 
-    setProgramForm(
-      emptyProgramForm
-    );
+    setProgramForm(emptyProgramForm);
 
     await load();
   }
 
-  function startEditTestimonial(
-    testimonial: Testimonial
-  ) {
-    setEditingTestimonialId(
-      testimonial.id
-    );
+  function startEditTestimonial(testimonial: Testimonial) {
+    setEditingTestimonialId(testimonial.id);
 
     setTestimonialEditForm({
       quote: testimonial.quote,
       name: testimonial.name,
       detail: testimonial.detail,
-      status: testimonial.status
+      status: testimonial.status,
     });
 
     setMessage("");
@@ -596,16 +494,14 @@ export default function AdminConsole() {
       quote: "",
       name: "",
       detail: "",
-      status: "DRAFT"
+      status: "DRAFT",
     });
 
     setMessage("");
     setError("");
   }
 
-  async function saveTestimonial(
-    event: FormEvent
-  ) {
+  async function saveTestimonial(event: FormEvent) {
     event.preventDefault();
 
     if (!editingTestimonialId) {
@@ -615,57 +511,42 @@ export default function AdminConsole() {
     setError("");
     setMessage("");
 
-    const response = await fetch(
-      "/api/admin/operations",
-      {
-        method: "PUT",
+    const response = await fetch("/api/admin/operations", {
+      method: "PUT",
 
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
+      headers: {
+        "Content-Type": "application/json",
+      },
 
-        body: JSON.stringify({
-          contentType: "testimonial",
-          id: editingTestimonialId,
+      body: JSON.stringify({
+        contentType: "testimonial",
+        id: editingTestimonialId,
 
-          quote:
-            testimonialEditForm.quote,
+        quote: testimonialEditForm.quote,
 
-          name:
-            testimonialEditForm.name,
+        name: testimonialEditForm.name,
 
-          detail:
-            testimonialEditForm.detail,
+        detail: testimonialEditForm.detail,
 
-          status:
-            testimonialEditForm.status
-        })
-      }
-    );
+        status: testimonialEditForm.status,
+      }),
+    });
 
     const data = await response.json();
 
     if (!response.ok) {
-      setError(
-        data.error ||
-        "Testimonial could not be updated."
-      );
+      setError(data.error || "Testimonial could not be updated.");
 
       return;
     }
 
     if (!data.testimonial) {
-      setError(
-        "Testimonial could not be found or updated."
-      );
+      setError("Testimonial could not be found or updated.");
 
       return;
     }
 
-    setMessage(
-      "Testimonial updated successfully."
-    );
+    setMessage("Testimonial updated successfully.");
 
     setEditingTestimonialId(null);
 
@@ -673,755 +554,959 @@ export default function AdminConsole() {
       quote: "",
       name: "",
       detail: "",
-      status: "DRAFT"
+      status: "DRAFT",
     });
 
     await load();
   }
 
-  if (!operations) return <div className="mx-auto max-w-6xl px-5 py-16 lg:px-8"><p className="card">Loading operations…</p></div>;
+  if (!operations)
+    return (
+      <div className="mx-auto max-w-6xl px-5 py-16 lg:px-8">
+        <p className="card">Loading operations…</p>
+      </div>
+    );
   const newEnquiryCount = operations.enquiries.filter(
-    (enquiry) => enquiry.status === "NEW"
+    (enquiry) => enquiry.status === "NEW",
   ).length;
   const nav = [
     ["overview", "Overview"],
-    ["enquiries", `Enquiries${newEnquiryCount > 0 ? ` (${newEnquiryCount} new)` : ""}`],
+    [
+      "enquiries",
+      `Enquiries${newEnquiryCount > 0 ? ` (${newEnquiryCount} new)` : ""}`,
+    ],
     ["users", `Users (${operations.users.length})`],
     ["catalog", "Programs"],
-    ["recorded-sessions", "Upload Recorded Sessions"],
+    ["recorded-sessions", "Manage Recorded Courses"],
     ["availability", "Manage availability"],
     ["bookings", "Bookings & payments"],
     ["reviews", "Reviews & testimonials"],
     ["audit", "Activity log"],
-    ["policy", "Policies"]
+    ["policy", "Policies"],
   ];
-  return <div className="mx-auto max-w-6xl px-5 py-16 lg:px-8">
-    <div><p className="eyebrow">Administrator operations</p><h1 className="mt-3 font-display text-5xl">Run the coaching practice</h1><p className="mt-4 max-w-3xl leading-7 text-ink/65">Operational states are explicit and recoverable in demo mode. Provider-backed deployments can replace these in-memory adapters with Prisma repositories and notification workers.</p></div>
-    <div className="mt-8 flex gap-2 overflow-x-auto border-b border-ink/10 pb-3" role="tablist">{nav.map(([id, label]) => <button key={id} onClick={() => setSection(id)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ${section === id ? "bg-moss text-white" : "bg-sand text-ink/70"}`}>{label}</button>)}</div>
-    {message && <p role="status" className="mt-6 rounded-xl bg-mist px-4 py-3 text-sm text-moss">{message}</p>}{error && <p role="alert" className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
-        {section === "recorded-sessions" && (
-      <section className="mt-10">
-        <RecordedSessionAdmin />
-      </section>
-    )}
-    {section === "overview" && <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{[
-      ["Users", operations.users.length],
-      ["Bookings", operations.bookingPagination.totalBookings],
-      [
-        "Payments",
-        operations.bookings.filter(
-          (booking) =>
-            booking.payment !== null
-        ).length
-      ],
-      ["Pending reviews", operations.reviews.filter(
-        (review) => review.status === "PENDING"
-      ).length],
-      ["New enquiries", newEnquiryCount]
-    ].map(([label, value]) => <div key={label} className="card"><p className="text-sm text-ink/60">{label}</p><p className="mt-3 font-display text-4xl">{value}</p></div>)}</div>}
-
-    {section === "enquiries" && (
-      <section className="mt-10">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="font-display text-3xl">
-              Contact enquiries
-            </h2>
-
-            <p className="mt-2 text-sm text-ink/60">
-              Enquiries submitted from the website contact form.
-            </p>
-          </div>
-
-          {newEnquiryCount > 0 && (
-            <span className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white">
-              {newEnquiryCount} new
-            </span>
-          )}
+  return (
+    <div className="mx-auto max-w-6xl px-5 py-16 lg:px-8">
+      <div>
+        <p className="eyebrow">Administrator operations</p>
+        <h1 className="mt-3 font-display text-5xl">
+          Run the coaching practice
+        </h1>
+        <p className="mt-4 max-w-3xl leading-7 text-ink/65">
+          Operational states are explicit and recoverable in demo mode.
+          Provider-backed deployments can replace these in-memory adapters with
+          Prisma repositories and notification workers.
+        </p>
+      </div>
+      <div
+        className="mt-8 flex gap-2 overflow-x-auto border-b border-ink/10 pb-3"
+        role="tablist"
+      >
+        {nav.map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setSection(id)}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ${section === id ? "bg-moss text-white" : "bg-sand text-ink/70"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {message && (
+        <p
+          role="status"
+          className="mt-6 rounded-xl bg-mist px-4 py-3 text-sm text-moss"
+        >
+          {message}
+        </p>
+      )}
+      {error && (
+        <p
+          role="alert"
+          className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {error}
+        </p>
+      )}
+      {section === "recorded-sessions" && (
+        <section className="mt-10">
+          <RecordedSessionAdmin />
+        </section>
+      )}
+      {section === "overview" && (
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["Users", operations.users.length],
+            ["Bookings", operations.bookingPagination.totalBookings],
+            [
+              "Payments",
+              operations.bookings.filter((booking) => booking.payment !== null)
+                .length,
+            ],
+            [
+              "Pending reviews",
+              operations.reviews.filter((review) => review.status === "PENDING")
+                .length,
+            ],
+            ["New enquiries", newEnquiryCount],
+          ].map(([label, value]) => (
+            <div key={label} className="card">
+              <p className="text-sm text-ink/60">{label}</p>
+              <p className="mt-3 font-display text-4xl">{value}</p>
+            </div>
+          ))}
         </div>
+      )}
 
-        {operations.enquiries.length === 0 ? (
-          <div className="card mt-5">
-            <p className="text-sm text-ink/60">
-              No contact enquiries yet.
-            </p>
+      {section === "enquiries" && (
+        <section className="mt-10">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="font-display text-3xl">Contact enquiries</h2>
+
+              <p className="mt-2 text-sm text-ink/60">
+                Enquiries submitted from the website contact form.
+              </p>
+            </div>
+
+            {newEnquiryCount > 0 && (
+              <span className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white">
+                {newEnquiryCount} new
+              </span>
+            )}
           </div>
-        ) : (
-          <div className="mt-5 space-y-4">
-            {operations.enquiries.map((enquiry) => (
-              <div
-                key={enquiry.id}
-                className={`card ${enquiry.status === "NEW"
-                  ? "border-2 border-coral/40"
-                  : ""
-                  }`}
-              >
-                <div className="flex flex-col justify-between gap-4 sm:flex-row">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="font-display text-2xl">
-                        {enquiry.name}
-                      </h3>
 
-                      {enquiry.status === "NEW" && (
-                        <span className="rounded-full bg-coral px-3 py-1 text-xs font-semibold uppercase text-white">
-                          New
-                        </span>
-                      )}
+          {operations.enquiries.length === 0 ? (
+            <div className="card mt-5">
+              <p className="text-sm text-ink/60">No contact enquiries yet.</p>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-4">
+              {operations.enquiries.map((enquiry) => (
+                <div
+                  key={enquiry.id}
+                  className={`card ${
+                    enquiry.status === "NEW" ? "border-2 border-coral/40" : ""
+                  }`}
+                >
+                  <div className="flex flex-col justify-between gap-4 sm:flex-row">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h3 className="font-display text-2xl">
+                          {enquiry.name}
+                        </h3>
+
+                        {enquiry.status === "NEW" && (
+                          <span className="rounded-full bg-coral px-3 py-1 text-xs font-semibold uppercase text-white">
+                            New
+                          </span>
+                        )}
+                      </div>
+
+                      <a
+                        href={`mailto:${enquiry.email}`}
+                        className="mt-2 inline-block text-sm font-semibold text-moss underline underline-offset-4"
+                      >
+                        {enquiry.email}
+                      </a>
+
+                      <p className="mt-2 text-xs text-ink/50">
+                        {display(enquiry.createdAt)}
+                      </p>
                     </div>
 
-                    <a
-                      href={`mailto:${enquiry.email}`}
-                      className="mt-2 inline-block text-sm font-semibold text-moss underline underline-offset-4"
-                    >
-                      {enquiry.email}
-                    </a>
-
-                    <p className="mt-2 text-xs text-ink/50">
-                      {display(enquiry.createdAt)}
-                    </p>
+                    {enquiry.status === "NEW" && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          operation({
+                            action: "enquiry-read",
+                            id: enquiry.id,
+                          })
+                        }
+                        className="button-secondary self-start"
+                      >
+                        Mark as read
+                      </button>
+                    )}
                   </div>
 
-                  {enquiry.status === "NEW" && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        operation({
-                          action: "enquiry-read",
-                          id: enquiry.id
-                        })
-                      }
-                      className="button-secondary self-start"
-                    >
-                      Mark as read
-                    </button>
-                  )}
+                  <div className="mt-5 rounded-2xl bg-sand p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-moss">
+                      What would you like to explore?
+                    </p>
+
+                    <p className="mt-3 whitespace-pre-wrap leading-7 text-ink/75">
+                      {enquiry.message}
+                    </p>
+                  </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
-                <div className="mt-5 rounded-2xl bg-sand p-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-moss">
-                    What would you like to explore?
-                  </p>
+      {section === "users" && (
+        <section className="mt-10">
+          <h2 className="font-display text-3xl">Users & access</h2>
+          <div className="mt-5 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
+            <table className="w-full min-w-[650px] text-left text-sm">
+              <thead className="border-b border-ink/10 bg-sand">
+                <tr>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Change role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {operations.users.map((user) => (
+                  <tr
+                    key={user.id}
+                    className="border-b border-ink/5 last:border-0"
+                  >
+                    <td className="px-4 py-3 font-semibold">{user.name}</td>
+                    <td className="px-4 py-3">{user.email}</td>
+                    <td className="px-4 py-3">{user.role}</td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={user.role}
+                        onChange={(event) =>
+                          operation({
+                            action: "user-role",
+                            id: user.id,
+                            role: event.target.value,
+                          })
+                        }
+                        className="rounded-lg border border-ink/15 px-2 py-1"
+                      >
+                        <option value="CUSTOMER">Customer</option>
+                        <option value="COACH">Coach</option>
+                        <option value="ADMIN">Admin</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+      {section === "catalog" && (
+        <section className="mt-10">
+          <h2 className="font-display text-3xl">Programs & packages</h2>
+          <form
+            onSubmit={editingProgramId ? saveProgram : addProgram}
+            className="card mt-5 grid gap-4 md:grid-cols-2"
+          >
+            {/* 1. Program Slug */}
+            <div className="space-y-1">
+              <label
+                htmlFor="program-slug"
+                className="block text-sm font-semibold"
+              >
+                Program Slug <span className="text-red-600">*</span>
+              </label>
+              <input
+                id="program-slug"
+                required
+                pattern="[a-z0-9-]+"
+                title="Use lowercase letters, numbers and hyphens only."
+                placeholder="e.g. good-mindset-student"
+                value={programForm.slug}
+                onChange={(event) =>
+                  setProgramForm({ ...programForm, slug: event.target.value })
+                }
+                className="w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <p className="text-xs text-gray-500">
+                Required: Lowercase letters (a-z), numbers (0-9) and hyphens (-)
+                only. No uppercase letters or spaces. Must be unique.
+              </p>
+            </div>
 
-                  <p className="mt-3 whitespace-pre-wrap leading-7 text-ink/75">
-                    {enquiry.message}
+            {/* 2. Program Title */}
+            <div className="space-y-1">
+              <label
+                htmlFor="program-title"
+                className="block text-sm font-semibold"
+              >
+                Program Title <span className="text-red-600">*</span>
+              </label>
+              <input
+                id="program-title"
+                required
+                minLength={2}
+                maxLength={120}
+                placeholder="e.g. Good Mindset Student Course"
+                value={programForm.title}
+                onChange={(event) =>
+                  setProgramForm({ ...programForm, title: event.target.value })
+                }
+                className="w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <p className="text-xs text-gray-500">
+                Required: 2–120 characters. Enter the program name displayed to
+                customers.
+              </p>
+            </div>
+
+            {/* 3. Tagline */}
+            <div className="space-y-1">
+              <label
+                htmlFor="program-tagline"
+                className="block text-sm font-semibold"
+              >
+                Tagline <span className="text-red-600">*</span>
+              </label>
+              <input
+                id="program-tagline"
+                required
+                minLength={2}
+                maxLength={200}
+                placeholder="e.g. Build confidence, focus and a positive mindset"
+                value={programForm.tagline}
+                onChange={(event) =>
+                  setProgramForm({
+                    ...programForm,
+                    tagline: event.target.value,
+                  })
+                }
+                className="w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <p className="text-xs text-gray-500">
+                Required: 2–200 characters. Write a short, attractive program
+                summary.
+              </p>
+            </div>
+
+            {/* 4. Duration */}
+            <div className="space-y-1">
+              <label
+                htmlFor="program-duration"
+                className="block text-sm font-semibold"
+              >
+                Duration (Minutes) <span className="text-red-600">*</span>
+              </label>
+              <input
+                id="program-duration"
+                required
+                type="number"
+                min={15}
+                max={480}
+                step={1}
+                placeholder="e.g. 60"
+                value={programForm.durationMins}
+                onChange={(event) =>
+                  setProgramForm({
+                    ...programForm,
+                    durationMins: event.target.value,
+                  })
+                }
+                className="w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <p className="text-xs text-gray-500">
+                Required: Whole number between 15 and 480. Example: 60 = 1 hour.
+              </p>
+            </div>
+
+            {/* 5. Price */}
+            <div className="space-y-1">
+              <label
+                htmlFor="program-price"
+                className="block text-sm font-semibold"
+              >
+                Price (INR) <span className="text-red-600">*</span>
+              </label>
+              <input
+                id="program-price"
+                required
+                type="number"
+                min={0}
+                max={1000000}
+                step={1}
+                placeholder="e.g. 1000"
+                value={programForm.priceInr}
+                onChange={(event) =>
+                  setProgramForm({
+                    ...programForm,
+                    priceInr: event.target.value,
+                  })
+                }
+                className="w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <p className="text-xs text-gray-500">
+                Required: Enter price in rupees from ₹0 to ₹10,00,000. Use 0 for
+                a free program.
+              </p>
+            </div>
+
+            {/* 6. Format */}
+            <div className="space-y-1">
+              <label
+                htmlFor="program-format"
+                className="block text-sm font-semibold"
+              >
+                Program Format <span className="text-red-600">*</span>
+              </label>
+              <input
+                id="program-format"
+                required
+                minLength={2}
+                maxLength={100}
+                placeholder="e.g. Online, one-to-one"
+                value={programForm.format}
+                onChange={(event) =>
+                  setProgramForm({ ...programForm, format: event.target.value })
+                }
+                className="w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <p className="text-xs text-gray-500">
+                Required: 2–100 characters. Example: Online, Offline, Group or
+                One-to-one.
+              </p>
+            </div>
+
+            {/* 7. Description */}
+            <div className="space-y-1 md:col-span-2">
+              <label
+                htmlFor="program-description"
+                className="block text-sm font-semibold"
+              >
+                Program Description <span className="text-red-600">*</span>
+              </label>
+              <textarea
+                id="program-description"
+                required
+                minLength={2}
+                maxLength={1000}
+                placeholder="Describe the program, its purpose and benefits..."
+                value={programForm.description}
+                onChange={(event) =>
+                  setProgramForm({
+                    ...programForm,
+                    description: event.target.value,
+                  })
+                }
+                className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <p className="text-xs text-gray-500">
+                Required: 2–1000 characters. Explain what the program covers and
+                how it helps participants.
+              </p>
+            </div>
+
+            {/* 8. Inclusions */}
+            <div className="space-y-1">
+              <label
+                htmlFor="program-inclusions"
+                className="block text-sm font-semibold"
+              >
+                Program Inclusions <span className="text-red-600">*</span>
+              </label>
+              <textarea
+                id="program-inclusions"
+                required
+                placeholder={
+                  "Personalized coaching\nPractical exercises\nProgress review"
+                }
+                value={programForm.inclusions}
+                onChange={(event) =>
+                  setProgramForm({
+                    ...programForm,
+                    inclusions: event.target.value,
+                  })
+                }
+                className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <p className="text-xs text-gray-500">
+                Required: Enter one inclusion per line. Maximum 10 entries, each
+                up to 200 characters. Do not leave blank lines.
+              </p>
+            </div>
+
+            {/* 9. Good Fit For */}
+            <div className="space-y-1">
+              <label
+                htmlFor="program-eligibility"
+                className="block text-sm font-semibold"
+              >
+                Good Fit For <span className="text-red-600">*</span>
+              </label>
+              <textarea
+                id="program-eligibility"
+                required
+                minLength={2}
+                maxLength={500}
+                placeholder="e.g. Students seeking better focus and confidence"
+                value={programForm.eligibility}
+                onChange={(event) =>
+                  setProgramForm({
+                    ...programForm,
+                    eligibility: event.target.value,
+                  })
+                }
+                className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <p className="text-xs text-gray-500">
+                Required: 2–500 characters. Describe who should join this
+                program.
+              </p>
+            </div>
+
+            {/* 10. What to Expect */}
+            <div className="space-y-1 md:col-span-2">
+              <label
+                htmlFor="program-expectations"
+                className="block text-sm font-semibold"
+              >
+                What to Expect <span className="text-red-600">*</span>
+              </label>
+              <textarea
+                id="program-expectations"
+                required
+                minLength={2}
+                maxLength={500}
+                placeholder="e.g. Interactive coaching, practical guidance and action steps"
+                value={programForm.expectations}
+                onChange={(event) =>
+                  setProgramForm({
+                    ...programForm,
+                    expectations: event.target.value,
+                  })
+                }
+                className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <p className="text-xs text-gray-500">
+                Required: 2–500 characters. Explain what participants can expect
+                during the program.
+              </p>
+            </div>
+
+            <div className="flex gap-3 md:col-span-2">
+              <button type="submit" className="button-primary flex-1">
+                {editingProgramId ? "Save changes" : "Add program"}
+              </button>
+
+              {editingProgramId && (
+                <button
+                  type="button"
+                  onClick={cancelEditProgram}
+                  className="button-secondary"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {operations.programs.map((program) => (
+              <div
+                key={program.id}
+                className="card flex items-center justify-between gap-4"
+              >
+                <div>
+                  <h3 className="font-display text-2xl">{program.title}</h3>
+                  <p className="mt-1 text-sm text-ink/60">
+                    {program.active
+                      ? "Published and bookable"
+                      : "Hidden from booking"}
                   </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => startEditProgram(program)}
+                    className="button-secondary"
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      operation({
+                        action: "program",
+                        id: program.id,
+                        active: !program.active,
+                      })
+                    }
+                    className="button-secondary"
+                  >
+                    {program.active ? "Deactivate" : "Activate"}
+                  </button>
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </section>
-    )}
-
-    {section === "users" && <section className="mt-10"><h2 className="font-display text-3xl">Users & access</h2><div className="mt-5 overflow-x-auto rounded-2xl border border-ink/10 bg-white"><table className="w-full min-w-[650px] text-left text-sm"><thead className="border-b border-ink/10 bg-sand"><tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Change role</th></tr></thead><tbody>{operations.users.map((user) => <tr key={user.id} className="border-b border-ink/5 last:border-0"><td className="px-4 py-3 font-semibold">{user.name}</td><td className="px-4 py-3">{user.email}</td><td className="px-4 py-3">{user.role}</td><td className="px-4 py-3"><select value={user.role} onChange={(event) => operation({ action: "user-role", id: user.id, role: event.target.value })} className="rounded-lg border border-ink/15 px-2 py-1"><option value="CUSTOMER">Customer</option><option value="COACH">Coach</option><option value="ADMIN">Admin</option></select></td></tr>)}</tbody></table></div></section>}
-    {section === "catalog" && <section className="mt-10"><h2 className="font-display text-3xl">Programs & packages</h2><form
-      onSubmit={
-        editingProgramId
-          ? saveProgram
-          : addProgram
-      } className="card mt-5 grid gap-4 md:grid-cols-2">
-
-      {/* 1. Program Slug */}
-      <div className="space-y-1">
-        <label htmlFor="program-slug" className="block text-sm font-semibold">
-          Program Slug <span className="text-red-600">*</span>
-        </label>
-        <input
-          id="program-slug"
-          required
-          pattern="[a-z0-9-]+"
-          title="Use lowercase letters, numbers and hyphens only."
-          placeholder="e.g. good-mindset-student"
-          value={programForm.slug}
-          onChange={(event) =>
-            setProgramForm({ ...programForm, slug: event.target.value })
-          }
-          className="w-full rounded-xl border border-ink/15 px-4 py-3"
-        />
-        <p className="text-xs text-gray-500">
-          Required: Lowercase letters (a-z), numbers (0-9) and hyphens (-) only.
-          No uppercase letters or spaces. Must be unique.
-        </p>
-      </div>
-
-      {/* 2. Program Title */}
-      <div className="space-y-1">
-        <label htmlFor="program-title" className="block text-sm font-semibold">
-          Program Title <span className="text-red-600">*</span>
-        </label>
-        <input
-          id="program-title"
-          required
-          minLength={2}
-          maxLength={120}
-          placeholder="e.g. Good Mindset Student Course"
-          value={programForm.title}
-          onChange={(event) =>
-            setProgramForm({ ...programForm, title: event.target.value })
-          }
-          className="w-full rounded-xl border border-ink/15 px-4 py-3"
-        />
-        <p className="text-xs text-gray-500">
-          Required: 2–120 characters. Enter the program name displayed to customers.
-        </p>
-      </div>
-
-      {/* 3. Tagline */}
-      <div className="space-y-1">
-        <label htmlFor="program-tagline" className="block text-sm font-semibold">
-          Tagline <span className="text-red-600">*</span>
-        </label>
-        <input
-          id="program-tagline"
-          required
-          minLength={2}
-          maxLength={200}
-          placeholder="e.g. Build confidence, focus and a positive mindset"
-          value={programForm.tagline}
-          onChange={(event) =>
-            setProgramForm({ ...programForm, tagline: event.target.value })
-          }
-          className="w-full rounded-xl border border-ink/15 px-4 py-3"
-        />
-        <p className="text-xs text-gray-500">
-          Required: 2–200 characters. Write a short, attractive program summary.
-        </p>
-      </div>
-
-      {/* 4. Duration */}
-      <div className="space-y-1">
-        <label htmlFor="program-duration" className="block text-sm font-semibold">
-          Duration (Minutes) <span className="text-red-600">*</span>
-        </label>
-        <input
-          id="program-duration"
-          required
-          type="number"
-          min={15}
-          max={480}
-          step={1}
-          placeholder="e.g. 60"
-          value={programForm.durationMins}
-          onChange={(event) =>
-            setProgramForm({ ...programForm, durationMins: event.target.value })
-          }
-          className="w-full rounded-xl border border-ink/15 px-4 py-3"
-        />
-        <p className="text-xs text-gray-500">
-          Required: Whole number between 15 and 480. Example: 60 = 1 hour.
-        </p>
-      </div>
-
-      {/* 5. Price */}
-      <div className="space-y-1">
-        <label htmlFor="program-price" className="block text-sm font-semibold">
-          Price (INR) <span className="text-red-600">*</span>
-        </label>
-        <input
-          id="program-price"
-          required
-          type="number"
-          min={0}
-          max={1000000}
-          step={1}
-          placeholder="e.g. 1000"
-          value={programForm.priceInr}
-          onChange={(event) =>
-            setProgramForm({ ...programForm, priceInr: event.target.value })
-          }
-          className="w-full rounded-xl border border-ink/15 px-4 py-3"
-        />
-        <p className="text-xs text-gray-500">
-          Required: Enter price in rupees from ₹0 to ₹10,00,000.
-          Use 0 for a free program.
-        </p>
-      </div>
-
-      {/* 6. Format */}
-      <div className="space-y-1">
-        <label htmlFor="program-format" className="block text-sm font-semibold">
-          Program Format <span className="text-red-600">*</span>
-        </label>
-        <input
-          id="program-format"
-          required
-          minLength={2}
-          maxLength={100}
-          placeholder="e.g. Online, one-to-one"
-          value={programForm.format}
-          onChange={(event) =>
-            setProgramForm({ ...programForm, format: event.target.value })
-          }
-          className="w-full rounded-xl border border-ink/15 px-4 py-3"
-        />
-        <p className="text-xs text-gray-500">
-          Required: 2–100 characters. Example: Online, Offline, Group or One-to-one.
-        </p>
-      </div>
-
-      {/* 7. Description */}
-      <div className="space-y-1 md:col-span-2">
-        <label htmlFor="program-description" className="block text-sm font-semibold">
-          Program Description <span className="text-red-600">*</span>
-        </label>
-        <textarea
-          id="program-description"
-          required
-          minLength={2}
-          maxLength={1000}
-          placeholder="Describe the program, its purpose and benefits..."
-          value={programForm.description}
-          onChange={(event) =>
-            setProgramForm({ ...programForm, description: event.target.value })
-          }
-          className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
-        />
-        <p className="text-xs text-gray-500">
-          Required: 2–1000 characters. Explain what the program covers
-          and how it helps participants.
-        </p>
-      </div>
-
-      {/* 8. Inclusions */}
-      <div className="space-y-1">
-        <label htmlFor="program-inclusions" className="block text-sm font-semibold">
-          Program Inclusions <span className="text-red-600">*</span>
-        </label>
-        <textarea
-          id="program-inclusions"
-          required
-          placeholder={"Personalized coaching\nPractical exercises\nProgress review"}
-          value={programForm.inclusions}
-          onChange={(event) =>
-            setProgramForm({ ...programForm, inclusions: event.target.value })
-          }
-          className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
-        />
-        <p className="text-xs text-gray-500">
-          Required: Enter one inclusion per line. Maximum 10 entries,
-          each up to 200 characters. Do not leave blank lines.
-        </p>
-      </div>
-
-      {/* 9. Good Fit For */}
-      <div className="space-y-1">
-        <label htmlFor="program-eligibility" className="block text-sm font-semibold">
-          Good Fit For <span className="text-red-600">*</span>
-        </label>
-        <textarea
-          id="program-eligibility"
-          required
-          minLength={2}
-          maxLength={500}
-          placeholder="e.g. Students seeking better focus and confidence"
-          value={programForm.eligibility}
-          onChange={(event) =>
-            setProgramForm({ ...programForm, eligibility: event.target.value })
-          }
-          className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
-        />
-        <p className="text-xs text-gray-500">
-          Required: 2–500 characters. Describe who should join this program.
-        </p>
-      </div>
-
-      {/* 10. What to Expect */}
-      <div className="space-y-1 md:col-span-2">
-        <label htmlFor="program-expectations" className="block text-sm font-semibold">
-          What to Expect <span className="text-red-600">*</span>
-        </label>
-        <textarea
-          id="program-expectations"
-          required
-          minLength={2}
-          maxLength={500}
-          placeholder="e.g. Interactive coaching, practical guidance and action steps"
-          value={programForm.expectations}
-          onChange={(event) =>
-            setProgramForm({ ...programForm, expectations: event.target.value })
-          }
-          className="min-h-24 w-full rounded-xl border border-ink/15 px-4 py-3"
-        />
-        <p className="text-xs text-gray-500">
-          Required: 2–500 characters. Explain what participants can expect
-          during the program.
-        </p>
-      </div>
-
-      <div className="flex gap-3 md:col-span-2">
-        <button
-          type="submit"
-          className="button-primary flex-1"
-        >
-          {editingProgramId
-            ? "Save changes"
-            : "Add program"}
-        </button>
-
-        {editingProgramId && (
-          <button
-            type="button"
-            onClick={
-              cancelEditProgram
-            }
-            className="button-secondary"
-          >
-            Cancel
-          </button>
-        )}
-      </div></form><div className="mt-5 grid gap-4 md:grid-cols-2">{operations.programs.map((program) => <div key={program.id} className="card flex items-center justify-between gap-4"><div><h3 className="font-display text-2xl">{program.title}</h3><p className="mt-1 text-sm text-ink/60">{program.active ? "Published and bookable" : "Hidden from booking"}</p></div><div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() =>
-            startEditProgram(
-              program
-            )
-          }
-          className="button-secondary"
-        >
-          Edit
-        </button>
-
-        <button
-          type="button"
-          onClick={() =>
-            operation({
-              action: "program",
-              id: program.id,
-              active:
-                !program.active
-            })
-          }
-          className="button-secondary"
-        >
-          {program.active
-            ? "Deactivate"
-            : "Activate"}
-        </button>
-      </div></div>)}</div></section>}
-    {section === "content" && <section className="mt-10 space-y-10">
-      <div>
-        <h2 className="font-display text-3xl">Add a YouTube session</h2>
-        <form onSubmit={(event) => { event.preventDefault(); createContent({ contentType: "youtube-session", ...youtubeForm }); setYoutubeForm({ title: "", description: "", category: "", duration: "Session", videoId: "" }); }} className="card mt-5 grid gap-4 md:grid-cols-2">
-          <input required value={youtubeForm.title} onChange={(event) => setYoutubeForm({ ...youtubeForm, title: event.target.value })} placeholder="Session title" className="rounded-xl border border-ink/15 px-4 py-3" />
-          <input required value={youtubeForm.category} onChange={(event) => setYoutubeForm({ ...youtubeForm, category: event.target.value })} placeholder="Category" className="rounded-xl border border-ink/15 px-4 py-3" />
-          <input required value={youtubeForm.duration} onChange={(event) => setYoutubeForm({ ...youtubeForm, duration: event.target.value })} placeholder="Duration label" className="rounded-xl border border-ink/15 px-4 py-3" />
-          <input value={youtubeForm.videoId} onChange={(event) => setYoutubeForm({ ...youtubeForm, videoId: event.target.value })} placeholder="YouTube video ID (optional)" className="rounded-xl border border-ink/15 px-4 py-3" />
-          <textarea required value={youtubeForm.description} onChange={(event) => setYoutubeForm({ ...youtubeForm, description: event.target.value })} placeholder="Description" className="min-h-28 rounded-xl border border-ink/15 px-4 py-3 md:col-span-2" />
-          <button className="button-primary md:col-span-2">Add YouTube session</button>
-        </form>
-        <div className="mt-5 grid gap-3 md:grid-cols-2">{operations.youtubeSessions.map((session) => <div key={session.id} className="card"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-moss">{session.category}</p><h3 className="mt-2 font-display text-2xl">{session.title}</h3><p className="mt-2 text-sm leading-6 text-ink/65">{session.description}</p><button onClick={() => deleteYoutubeSession(session.id)} className="mt-4 text-sm font-semibold text-coral underline">Delete session</button></div>)}</div>
-      </div>
-      <div>
-        <h2 className="font-display text-3xl">Add a story</h2>
-        <form onSubmit={(event) => { event.preventDefault(); createContent({ contentType: "testimonial", ...storyForm }); setStoryForm({ quote: "", name: "", detail: "" }); }} className="card mt-5 grid gap-4 md:grid-cols-2">
-          <textarea required value={storyForm.quote} onChange={(event) => setStoryForm({ ...storyForm, quote: event.target.value })} placeholder="Story quote" className="min-h-28 rounded-xl border border-ink/15 px-4 py-3 md:col-span-2" />
-          <input required value={storyForm.name} onChange={(event) => setStoryForm({ ...storyForm, name: event.target.value })} placeholder="Name or attribution" className="rounded-xl border border-ink/15 px-4 py-3" />
-          <input required value={storyForm.detail} onChange={(event) => setStoryForm({ ...storyForm, detail: event.target.value })} placeholder="Context or detail" className="rounded-xl border border-ink/15 px-4 py-3" />
-          <button className="button-primary md:col-span-2">Add story for review</button>
-        </form>
-      </div>
-    </section>}
-    {section === "availability" && (
-      <section className="mt-10">
-        <div>
-          <h2 className="font-display text-3xl">
-            Availability
-          </h2>
-
-          <div className="card mt-5">
-            <h3 className="font-semibold">
-              Automatic availability
-            </h3>
-
-            <p className="mt-2 text-sm leading-6 text-ink/60">
-              60-minute time slots are automatically
-              generated from 10:00 AM to 6:00 PM
-              for the next 3 days starting from
-              tomorrow.
-            </p>
-
-            <p className="mt-2 text-sm leading-6 text-ink/60">
-              Today is not included. Previous dates
-              automatically disappear from customer
-              Available times while existing booking
-              and payment records remain unchanged.
-            </p>
+        </section>
+      )}
+      {section === "content" && (
+        <section className="mt-10 space-y-10">
+          <div>
+            <h2 className="font-display text-3xl">Add a YouTube session</h2>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                createContent({
+                  contentType: "youtube-session",
+                  ...youtubeForm,
+                });
+                setYoutubeForm({
+                  title: "",
+                  description: "",
+                  category: "",
+                  duration: "Session",
+                  videoId: "",
+                });
+              }}
+              className="card mt-5 grid gap-4 md:grid-cols-2"
+            >
+              <input
+                required
+                value={youtubeForm.title}
+                onChange={(event) =>
+                  setYoutubeForm({ ...youtubeForm, title: event.target.value })
+                }
+                placeholder="Session title"
+                className="rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <input
+                required
+                value={youtubeForm.category}
+                onChange={(event) =>
+                  setYoutubeForm({
+                    ...youtubeForm,
+                    category: event.target.value,
+                  })
+                }
+                placeholder="Category"
+                className="rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <input
+                required
+                value={youtubeForm.duration}
+                onChange={(event) =>
+                  setYoutubeForm({
+                    ...youtubeForm,
+                    duration: event.target.value,
+                  })
+                }
+                placeholder="Duration label"
+                className="rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <input
+                value={youtubeForm.videoId}
+                onChange={(event) =>
+                  setYoutubeForm({
+                    ...youtubeForm,
+                    videoId: event.target.value,
+                  })
+                }
+                placeholder="YouTube video ID (optional)"
+                className="rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <textarea
+                required
+                value={youtubeForm.description}
+                onChange={(event) =>
+                  setYoutubeForm({
+                    ...youtubeForm,
+                    description: event.target.value,
+                  })
+                }
+                placeholder="Description"
+                className="min-h-28 rounded-xl border border-ink/15 px-4 py-3 md:col-span-2"
+              />
+              <button className="button-primary md:col-span-2">
+                Add YouTube session
+              </button>
+            </form>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {operations.youtubeSessions.map((session) => (
+                <div key={session.id} className="card">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-moss">
+                    {session.category}
+                  </p>
+                  <h3 className="mt-2 font-display text-2xl">
+                    {session.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-ink/65">
+                    {session.description}
+                  </p>
+                  <button
+                    onClick={() => deleteYoutubeSession(session.id)}
+                    className="mt-4 text-sm font-semibold text-coral underline"
+                  >
+                    Delete session
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
+          <div>
+            <h2 className="font-display text-3xl">Add a story</h2>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                createContent({ contentType: "testimonial", ...storyForm });
+                setStoryForm({ quote: "", name: "", detail: "" });
+              }}
+              className="card mt-5 grid gap-4 md:grid-cols-2"
+            >
+              <textarea
+                required
+                value={storyForm.quote}
+                onChange={(event) =>
+                  setStoryForm({ ...storyForm, quote: event.target.value })
+                }
+                placeholder="Story quote"
+                className="min-h-28 rounded-xl border border-ink/15 px-4 py-3 md:col-span-2"
+              />
+              <input
+                required
+                value={storyForm.name}
+                onChange={(event) =>
+                  setStoryForm({ ...storyForm, name: event.target.value })
+                }
+                placeholder="Name or attribution"
+                className="rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <input
+                required
+                value={storyForm.detail}
+                onChange={(event) =>
+                  setStoryForm({ ...storyForm, detail: event.target.value })
+                }
+                placeholder="Context or detail"
+                className="rounded-xl border border-ink/15 px-4 py-3"
+              />
+              <button className="button-primary md:col-span-2">
+                Add story for review
+              </button>
+            </form>
+          </div>
+        </section>
+      )}
+      {section === "availability" && (
+        <section className="mt-10">
+          <div>
+            <h2 className="font-display text-3xl">Availability</h2>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {slots.map((slot) => (
-              <div
-                key={slot.id}
-                className="rounded-2xl border border-ink/10 bg-white p-4"
-              >
-                <p className="font-semibold">
-                  {display(slot.startsAt)}
-                </p>
+            <div className="card mt-5">
+              <h3 className="font-semibold">Automatic availability</h3>
 
-                <p className="mt-1 text-sm text-ink/55">
-                  {slot.hasBooking
-                    ? "Claimed / booked"
-                    : slot.isOpen
-                      ? "Open for booking"
-                      : "Closed by admin"}
-                </p>
+              <p className="mt-2 text-sm leading-6 text-ink/60">
+                60-minute time slots are automatically generated from 10:00 AM
+                to 6:00 PM for the next 3 days starting from tomorrow.
+              </p>
 
-                {slot.isOpen &&
-                  !slot.hasBooking && (
+              <p className="mt-2 text-sm leading-6 text-ink/60">
+                Today is not included. Previous dates automatically disappear
+                from customer Available times while existing booking and payment
+                records remain unchanged.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {slots.map((slot) => (
+                <div
+                  key={slot.id}
+                  className="rounded-2xl border border-ink/10 bg-white p-4"
+                >
+                  <p className="font-semibold">{display(slot.startsAt)}</p>
+
+                  <p className="mt-1 text-sm text-ink/55">
+                    {slot.hasBooking
+                      ? "Claimed / booked"
+                      : slot.isOpen
+                        ? "Open for booking"
+                        : "Closed by admin"}
+                  </p>
+
+                  {slot.isOpen && !slot.hasBooking && (
                     <button
                       type="button"
-                      onClick={() =>
-                        removeSlot(slot.id)
-                      }
+                      onClick={() => removeSlot(slot.id)}
                       className="mt-4 text-sm font-semibold text-coral underline"
                     >
                       Remove
                     </button>
                   )}
 
-                {!slot.isOpen &&
-                  !slot.hasBooking && (
+                  {!slot.isOpen && !slot.hasBooking && (
                     <button
                       type="button"
-                      onClick={() =>
-                        recoverSlot(slot.id)
-                      }
+                      onClick={() => recoverSlot(slot.id)}
                       className="mt-4 text-sm font-semibold text-moss underline"
                     >
                       Recover
                     </button>
                   )}
-              </div>
-            ))}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
-    )}
+        </section>
+      )}
 
-    {section === "bookings" && (
-      <section className="mt-10">
-        <div>
-          <h2 className="font-display text-3xl">
-            Booking & Payment Schedule
-          </h2>
+      {section === "bookings" && (
+        <section className="mt-10">
+          <div>
+            <h2 className="font-display text-3xl">
+              Booking & Payment Schedule
+            </h2>
 
-          <p className="mt-2 text-sm text-ink/60">
-            Customer meetings, booking details
-            and payment information.
-          </p>
-        </div>
-
-        {/* FILTERS */}
-        <div className="card mt-5 grid gap-4 md:grid-cols-4">
-          <label className="text-sm font-semibold">
-            Start Date
-
-            <input
-              type="date"
-              value={bookingStartDate}
-              onChange={(event) =>
-                setBookingStartDate(
-                  event.target.value
-                )
-              }
-              className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
-            />
-          </label>
-
-          <label className="text-sm font-semibold">
-            End Date
-
-            <input
-              type="date"
-              value={bookingEndDate}
-              onChange={(event) =>
-                setBookingEndDate(
-                  event.target.value
-                )
-              }
-              className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
-            />
-          </label>
-
-          <label className="text-sm font-semibold">
-            Payment Status
-
-            <select
-              value={bookingPaymentStatus}
-              onChange={(event) =>
-                setBookingPaymentStatus(
-                  event.target.value
-                )
-              }
-              className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
-            >
-              <option value="">
-                All payments
-              </option>
-
-              <option value="PAID">
-                Paid
-              </option>
-
-              <option value="PENDING">
-                Pending
-              </option>
-
-              <option value="CREATED">
-                Created
-              </option>
-
-              <option value="FAILED">
-                Failed
-              </option>
-
-              <option value="CANCELLED">
-                Cancelled
-              </option>
-
-              <option value="NOT_REQUIRED">
-                Not required
-              </option>
-            </select>
-          </label>
-
-          <div className="flex items-end gap-2">
-            <button
-              type="button"
-              className="button-primary flex-1"
-              onClick={() => {
-                setError("");
-
-                const filters = {
-                  startDate: bookingStartDate,
-                  endDate: bookingEndDate,
-                  paymentStatus: bookingPaymentStatus
-                };
-                setAppliedBookingFilters(filters);
-                load(filters, 1).catch(() =>
-                  setError(
-                    "Could not filter bookings."
-                  )
-                );
-              }}
-            >
-              Apply
-            </button>
-
-            <button
-              type="button"
-              className="button-secondary flex-1"
-              onClick={() => {
-                setBookingStartDate("");
-                setBookingEndDate("");
-                setBookingPaymentStatus("");
-                setError("");
-                const emptyFilters = {
-                  startDate: "",
-                  endDate: "",
-                  paymentStatus: ""
-                };
-                setAppliedBookingFilters(emptyFilters);
-                load(emptyFilters, 1).catch(() =>
-                  setError(
-                    "Could not reload bookings."
-                  )
-                );
-              }}
-            >
-              Clear
-            </button>
+            <p className="mt-2 text-sm text-ink/60">
+              Customer meetings, booking details and payment information.
+            </p>
           </div>
-        </div>
 
-        {/* BOOKING TABLE */}
-        <div className="mt-5 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
-          <table className="w-full min-w-[1600px] text-left text-sm">
-            <thead className="border-b border-ink/10 bg-sand">
-              <tr>
-                <th className="px-4 py-3">
-                  Meeting Date & Time
-                </th>
+          {/* FILTERS */}
+          <div className="card mt-5 grid gap-4 md:grid-cols-4">
+            <label className="text-sm font-semibold">
+              Start Date
+              <input
+                type="date"
+                value={bookingStartDate}
+                onChange={(event) => setBookingStartDate(event.target.value)}
+                className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+            </label>
 
-                <th className="px-4 py-3">
-                  Customer
-                </th>
+            <label className="text-sm font-semibold">
+              End Date
+              <input
+                type="date"
+                value={bookingEndDate}
+                onChange={(event) => setBookingEndDate(event.target.value)}
+                className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+            </label>
 
-                <th className="px-4 py-3">
-                  Mobile
-                </th>
+            <label className="text-sm font-semibold">
+              Payment Status
+              <select
+                value={bookingPaymentStatus}
+                onChange={(event) =>
+                  setBookingPaymentStatus(event.target.value)
+                }
+                className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
+              >
+                <option value="">All payments</option>
 
-                <th className="px-4 py-3">
-                  Email
-                </th>
+                <option value="PAID">Paid</option>
 
-                <th className="px-4 py-3">
-                  Program
-                </th>
+                <option value="PENDING">Pending</option>
 
-                <th className="px-4 py-3">
-                  Amount
-                </th>
+                <option value="CREATED">Created</option>
 
-                <th className="px-4 py-3">
-                  Payment
-                </th>
+                <option value="FAILED">Failed</option>
 
-                <th className="px-4 py-3">
-                  Booking Status
-                </th>
+                <option value="CANCELLED">Cancelled</option>
 
-                <th className="px-4 py-3">
-                  Booked On
-                </th>
+                <option value="NOT_REQUIRED">Not required</option>
+              </select>
+            </label>
 
-                <th className="px-4 py-3">
-                  Reference
-                </th>
+            <div className="flex items-end gap-2">
+              <button
+                type="button"
+                className="button-primary flex-1"
+                onClick={() => {
+                  setError("");
 
-                <th className="px-4 py-3">
-                  Google Meet
-                </th>
+                  const filters = {
+                    startDate: bookingStartDate,
+                    endDate: bookingEndDate,
+                    paymentStatus: bookingPaymentStatus,
+                  };
+                  setAppliedBookingFilters(filters);
+                  load(filters, 1).catch(() =>
+                    setError("Could not filter bookings."),
+                  );
+                }}
+              >
+                Apply
+              </button>
 
-                <th className="px-4 py-3">
-                  Action
-                </th>
-              </tr>
-            </thead>
+              <button
+                type="button"
+                className="button-secondary flex-1"
+                onClick={() => {
+                  setBookingStartDate("");
+                  setBookingEndDate("");
+                  setBookingPaymentStatus("");
+                  setError("");
+                  const emptyFilters = {
+                    startDate: "",
+                    endDate: "",
+                    paymentStatus: "",
+                  };
+                  setAppliedBookingFilters(emptyFilters);
+                  load(emptyFilters, 1).catch(() =>
+                    setError("Could not reload bookings."),
+                  );
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
 
-            <tbody>
-              {operations.bookings.length ===
-                0 ? (
+          {/* BOOKING TABLE */}
+          <div className="mt-5 overflow-x-auto rounded-2xl border border-ink/10 bg-white">
+            <table className="w-full min-w-[1600px] text-left text-sm">
+              <thead className="border-b border-ink/10 bg-sand">
                 <tr>
-                  <td
-                    colSpan={12}
-                    className="px-4 py-10 text-center text-ink/50"
-                  >
-                    No bookings found.
-                  </td>
+                  <th className="px-4 py-3">Meeting Date & Time</th>
+
+                  <th className="px-4 py-3">Customer</th>
+
+                  <th className="px-4 py-3">Mobile</th>
+
+                  <th className="px-4 py-3">Email</th>
+
+                  <th className="px-4 py-3">Program</th>
+
+                  <th className="px-4 py-3">Amount</th>
+
+                  <th className="px-4 py-3">Payment</th>
+
+                  <th className="px-4 py-3">Booking Status</th>
+
+                  <th className="px-4 py-3">Booked On</th>
+
+                  <th className="px-4 py-3">Reference</th>
+
+                  <th className="px-4 py-3">Google Meet</th>
+
+                  <th className="px-4 py-3">Action</th>
                 </tr>
-              ) : (
-                operations.bookings.map(
-                  (booking) => (
+              </thead>
+
+              <tbody>
+                {operations.bookings.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={12}
+                      className="px-4 py-10 text-center text-ink/50"
+                    >
+                      No bookings found.
+                    </td>
+                  </tr>
+                ) : (
+                  operations.bookings.map((booking) => (
                     <tr
                       key={booking.id}
                       className="border-b border-ink/5 align-top last:border-0"
                     >
                       {/* MEETING */}
                       <td className="px-4 py-4 font-semibold">
-                        {displayMeetingDate(
-                          booking.availability
-                            .startsAt
-                        )}
+                        {displayMeetingDate(booking.availability.startsAt)}
 
                         <p className="mt-1 text-xs font-normal text-ink/50">
-                          {
-                            booking.program
-                              .durationMins
-                          }{" "}
-                          minutes
+                          {booking.program.durationMins} minutes
                         </p>
                       </td>
 
@@ -1432,8 +1517,7 @@ export default function AdminConsole() {
 
                       {/* MOBILE */}
                       <td className="px-4 py-4">
-                        {booking.user.phone ||
-                          "Not provided"}
+                        {booking.user.phone || "Not provided"}
                       </td>
 
                       {/* EMAIL */}
@@ -1455,13 +1539,8 @@ export default function AdminConsole() {
                       <td className="px-4 py-4 font-semibold">
                         ₹
                         {(
-                          booking.payment
-                            ?.amountInr ??
-                          booking.program
-                            .priceInr
-                        ).toLocaleString(
-                          "en-IN"
-                        )}
+                          booking.payment?.amountInr ?? booking.program.priceInr
+                        ).toLocaleString("en-IN")}
                       </td>
 
                       {/* PAYMENT */}
@@ -1469,48 +1548,33 @@ export default function AdminConsole() {
                         {booking.payment ? (
                           <div className="space-y-1">
                             <span
-                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${booking.payment
-                                .status ===
-                                "PAID"
-                                ? "bg-green-100 text-green-800"
-                                : booking
-                                  .payment
-                                  .status ===
-                                  "FAILED"
-                                  ? "bg-red-100 text-red-800"
-                                  : booking
-                                    .payment
-                                    .status ===
-                                    "CANCELLED"
-                                    ? "bg-gray-100 text-gray-700"
-                                    : "bg-amber-100 text-amber-800"
-                                }`}
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                booking.payment.status === "PAID"
+                                  ? "bg-green-100 text-green-800"
+                                  : booking.payment.status === "FAILED"
+                                    ? "bg-red-100 text-red-800"
+                                    : booking.payment.status === "CANCELLED"
+                                      ? "bg-gray-100 text-gray-700"
+                                      : "bg-amber-100 text-amber-800"
+                              }`}
                             >
-                              {booking.payment
-                                .status ===
-                                "PAID"
+                              {booking.payment.status === "PAID"
                                 ? "✓ PAID"
-                                : booking.payment
-                                  .status}
+                                : booking.payment.status}
                             </span>
 
                             <p className="text-xs text-ink/50">
-                              DB Payment ID:{" "}
-                              {booking.payment.id}
+                              DB Payment ID: {booking.payment.id}
                             </p>
 
                             <p className="text-xs text-ink/50">
                               Provider Order ID:{" "}
-                              {booking.payment
-                                .providerOrderId ||
-                                "—"}
+                              {booking.payment.providerOrderId || "—"}
                             </p>
 
                             <p className="text-xs text-ink/50">
                               Provider Payment ID:{" "}
-                              {booking.payment
-                                .providerPaymentId ||
-                                "—"}
+                              {booking.payment.providerPaymentId || "—"}
                             </p>
                           </div>
                         ) : (
@@ -1528,16 +1592,12 @@ export default function AdminConsole() {
 
                       {/* BOOKING STATUS */}
                       <td className="px-4 py-4">
-                        <span className="font-semibold">
-                          {booking.status}
-                        </span>
+                        <span className="font-semibold">{booking.status}</span>
                       </td>
 
                       {/* BOOKED ON */}
                       <td className="px-4 py-4">
-                        {displayBookedOn(
-                          booking.createdAt
-                        )}
+                        {displayBookedOn(booking.createdAt)}
                       </td>
 
                       {/* REFERENCE */}
@@ -1561,9 +1621,7 @@ export default function AdminConsole() {
                             {booking.googleCalendarEventUrl && (
                               <div>
                                 <a
-                                  href={
-                                    booking.googleCalendarEventUrl
-                                  }
+                                  href={booking.googleCalendarEventUrl}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="text-xs text-ink/55 underline"
@@ -1573,25 +1631,17 @@ export default function AdminConsole() {
                               </div>
                             )}
                           </div>
-                        ) : booking.status ===
-                          "CONFIRMED" ? (
-                          <span className="text-amber-700">
-                            Not generated
-                          </span>
+                        ) : booking.status === "CONFIRMED" ? (
+                          <span className="text-amber-700">Not generated</span>
                         ) : (
-                          <span className="text-ink/45">
-                            —
-                          </span>
+                          <span className="text-ink/45">—</span>
                         )}
                       </td>
 
                       {/* ACTION */}
                       <td className="px-4 py-4">
-                        {booking.status ===
-                          "CANCELLED" ? (
-                          <span className="text-ink/50">
-                            Closed
-                          </span>
+                        {booking.status === "CANCELLED" ? (
+                          <span className="text-ink/50">Closed</span>
                         ) : (
                           <button
                             type="button"
@@ -1600,48 +1650,32 @@ export default function AdminConsole() {
                               setError("");
                               setMessage("");
 
-                              const response =
-                                await fetch(
-                                  "/api/bookings",
-                                  {
-                                    method:
-                                      "PATCH",
+                              const response = await fetch("/api/bookings", {
+                                method: "PATCH",
 
-                                    headers: {
-                                      "Content-Type":
-                                        "application/json"
-                                    },
+                                headers: {
+                                  "Content-Type": "application/json",
+                                },
 
-                                    body:
-                                      JSON.stringify(
-                                        {
-                                          bookingId:
-                                            booking.id,
+                                body: JSON.stringify({
+                                  bookingId: booking.id,
 
-                                          action:
-                                            "cancel"
-                                        }
-                                      )
-                                  }
-                                );
+                                  action: "cancel",
+                                }),
+                              });
 
-                              const data =
-                                await response.json();
+                              const data = await response.json();
 
-                              if (
-                                !response.ok
-                              ) {
+                              if (!response.ok) {
                                 setError(
                                   data.error ||
-                                  "Booking could not be cancelled."
+                                    "Booking could not be cancelled.",
                                 );
 
                                 return;
                               }
 
-                              setMessage(
-                                "Booking cancelled."
-                              );
+                              setMessage("Booking cancelled.");
 
                               await load(appliedBookingFilters, bookingPage);
                             }}
@@ -1651,65 +1685,64 @@ export default function AdminConsole() {
                         )}
                       </td>
                     </tr>
-                  )
-                )
-              )}
-            </tbody>
-          </table>
-        </div>
-        {operations.bookingPagination && (
-          <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-ink/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-ink/60">
-              {operations.bookingPagination.totalBookings === 0
-                ? "Showing 0 bookings"
-                : `Showing ${(bookingPage - 1) * operations.bookingPagination.pageSize + 1}–${Math.min(bookingPage * operations.bookingPagination.pageSize, operations.bookingPagination.totalBookings)} of ${operations.bookingPagination.totalBookings} bookings`}
-            </p>
-            <div className="flex items-center gap-3">
-              <button type="button" disabled={bookingPage <= 1 || bookingLoading}
-                onClick={() => changeBookingPage(bookingPage - 1)}
-                className="button-secondary disabled:cursor-not-allowed disabled:opacity-40">
-                Previous
-              </button>
-              <span className="text-sm font-semibold text-ink">
-                Page {bookingPage} of {operations.bookingPagination.totalPages}
-              </span>
-              <button type="button"
-                disabled={bookingPage >= operations.bookingPagination.totalPages || bookingLoading}
-                onClick={() => changeBookingPage(bookingPage + 1)}
-                className="button-primary disabled:cursor-not-allowed disabled:opacity-40">
-                {bookingLoading ? "Loading..." : "Next"}
-              </button>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-      </section>
-    )}
-    {section === "reviews" && (
-      <section className="mt-10 space-y-10">
+          {operations.bookingPagination && (
+            <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-ink/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-ink/60">
+                {operations.bookingPagination.totalBookings === 0
+                  ? "Showing 0 bookings"
+                  : `Showing ${(bookingPage - 1) * operations.bookingPagination.pageSize + 1}–${Math.min(bookingPage * operations.bookingPagination.pageSize, operations.bookingPagination.totalBookings)} of ${operations.bookingPagination.totalBookings} bookings`}
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={bookingPage <= 1 || bookingLoading}
+                  onClick={() => changeBookingPage(bookingPage - 1)}
+                  className="button-secondary disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Previous
+                </button>
+                <span className="text-sm font-semibold text-ink">
+                  Page {bookingPage} of{" "}
+                  {operations.bookingPagination.totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={
+                    bookingPage >= operations.bookingPagination.totalPages ||
+                    bookingLoading
+                  }
+                  onClick={() => changeBookingPage(bookingPage + 1)}
+                  className="button-primary disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {bookingLoading ? "Loading..." : "Next"}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+      {section === "reviews" && (
+        <section className="mt-10 space-y-10">
+          {/* REVIEWS */}
+          <div>
+            <h2 className="font-display text-3xl">Review moderation</h2>
 
-        {/* REVIEWS */}
-        <div>
-          <h2 className="font-display text-3xl">
-            Review moderation
-          </h2>
-
-          {operations.reviews.length === 0 ? (
-            <p className="mt-4 text-sm text-ink/60">
-              No customer reviews yet.
-            </p>
-          ) : (
-            <div className="mt-5 space-y-3">
-              {operations.reviews.map(
-                (review) => (
-                  <div
-                    key={review.id}
-                    className="card"
-                  >
+            {operations.reviews.length === 0 ? (
+              <p className="mt-4 text-sm text-ink/60">
+                No customer reviews yet.
+              </p>
+            ) : (
+              <div className="mt-5 space-y-3">
+                {operations.reviews.map((review) => (
+                  <div key={review.id} className="card">
                     <div className="flex justify-between gap-4">
                       <p className="font-semibold">
-                        {review.userName ||
-                          "Customer"}{" "}
-                        · {review.rating}/5
+                        {review.userName || "Customer"} · {review.rating}/5
                       </p>
 
                       <span className="text-xs font-semibold uppercase text-moss">
@@ -1721,74 +1754,57 @@ export default function AdminConsole() {
                       {review.text}
                     </p>
 
-                    {review.status ===
-                      "PENDING" && (
-                        <div className="mt-4 flex gap-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              operation({
-                                action: "review",
-                                id: review.id,
-                                status:
-                                  "APPROVED"
-                              })
-                            }
-                            className="button-primary"
-                          >
-                            Approve
-                          </button>
+                    {review.status === "PENDING" && (
+                      <div className="mt-4 flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            operation({
+                              action: "review",
+                              id: review.id,
+                              status: "APPROVED",
+                            })
+                          }
+                          className="button-primary"
+                        >
+                          Approve
+                        </button>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              operation({
-                                action: "review",
-                                id: review.id,
-                                status:
-                                  "REJECTED"
-                              })
-                            }
-                            className="button-secondary"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            operation({
+                              action: "review",
+                              id: review.id,
+                              status: "REJECTED",
+                            })
+                          }
+                          className="button-secondary"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )
-              )}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-        {/* TESTIMONIALS */}
-        <div>
-          <h2 className="font-display text-3xl">
-            Testimonials
-          </h2>
+          {/* TESTIMONIALS */}
+          <div>
+            <h2 className="font-display text-3xl">Testimonials</h2>
 
-          {operations.testimonials.length ===
-            0 ? (
-            <p className="mt-4 text-sm text-ink/60">
-              No testimonials yet.
-            </p>
-          ) : (
-            <div className="mt-5 space-y-4">
-              {operations.testimonials.map(
-                (testimonial) => (
-                  <div
-                    key={testimonial.id}
-                    className="card"
-                  >
-                    {editingTestimonialId ===
-                      testimonial.id ? (
-
+            {operations.testimonials.length === 0 ? (
+              <p className="mt-4 text-sm text-ink/60">No testimonials yet.</p>
+            ) : (
+              <div className="mt-5 space-y-4">
+                {operations.testimonials.map((testimonial) => (
+                  <div key={testimonial.id} className="card">
+                    {editingTestimonialId === testimonial.id ? (
                       /* EDIT MODE */
                       <form
-                        onSubmit={
-                          saveTestimonial
-                        }
+                        onSubmit={saveTestimonial}
                         className="grid gap-4 md:grid-cols-2"
                       >
                         <div className="md:col-span-2">
@@ -1798,18 +1814,12 @@ export default function AdminConsole() {
 
                           <textarea
                             required
-                            value={
-                              testimonialEditForm.quote
-                            }
+                            value={testimonialEditForm.quote}
                             onChange={(event) =>
-                              setTestimonialEditForm(
-                                {
-                                  ...testimonialEditForm,
-                                  quote:
-                                    event.target
-                                      .value
-                                }
-                              )
+                              setTestimonialEditForm({
+                                ...testimonialEditForm,
+                                quote: event.target.value,
+                              })
                             }
                             className="mt-2 min-h-28 w-full rounded-xl border border-ink/15 px-4 py-3"
                             placeholder="Testimonial quote"
@@ -1817,24 +1827,16 @@ export default function AdminConsole() {
                         </div>
 
                         <div>
-                          <label className="text-sm font-semibold">
-                            Name
-                          </label>
+                          <label className="text-sm font-semibold">Name</label>
 
                           <input
                             required
-                            value={
-                              testimonialEditForm.name
-                            }
+                            value={testimonialEditForm.name}
                             onChange={(event) =>
-                              setTestimonialEditForm(
-                                {
-                                  ...testimonialEditForm,
-                                  name:
-                                    event.target
-                                      .value
-                                }
-                              )
+                              setTestimonialEditForm({
+                                ...testimonialEditForm,
+                                name: event.target.value,
+                              })
                             }
                             className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
                             placeholder="Name or attribution"
@@ -1848,18 +1850,12 @@ export default function AdminConsole() {
 
                           <input
                             required
-                            value={
-                              testimonialEditForm.detail
-                            }
+                            value={testimonialEditForm.detail}
                             onChange={(event) =>
-                              setTestimonialEditForm(
-                                {
-                                  ...testimonialEditForm,
-                                  detail:
-                                    event.target
-                                      .value
-                                }
-                              )
+                              setTestimonialEditForm({
+                                ...testimonialEditForm,
+                                detail: event.target.value,
+                              })
                             }
                             className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
                             placeholder="Context or detail"
@@ -1867,18 +1863,13 @@ export default function AdminConsole() {
                         </div>
 
                         <div className="flex gap-3 md:col-span-2">
-                          <button
-                            type="submit"
-                            className="button-primary"
-                          >
+                          <button type="submit" className="button-primary">
                             Save changes
                           </button>
 
                           <button
                             type="button"
-                            onClick={
-                              cancelEditTestimonial
-                            }
+                            onClick={cancelEditTestimonial}
                             className="button-secondary"
                           >
                             Cancel
@@ -1886,7 +1877,6 @@ export default function AdminConsole() {
                         </div>
                       </form>
                     ) : (
-
                       /* NORMAL DISPLAY MODE */
                       <div className="flex flex-col justify-between gap-4 sm:flex-row">
                         <div>
@@ -1895,8 +1885,7 @@ export default function AdminConsole() {
                           </p>
 
                           <p className="mt-2 text-sm text-ink/60">
-                            {testimonial.name} ·{" "}
-                            {testimonial.detail}
+                            {testimonial.name} · {testimonial.detail}
                           </p>
 
                           <p className="mt-2 text-xs font-semibold uppercase text-moss">
@@ -1905,15 +1894,10 @@ export default function AdminConsole() {
                         </div>
 
                         <div className="flex flex-wrap items-start gap-2">
-
                           {/* EDIT */}
                           <button
                             type="button"
-                            onClick={() =>
-                              startEditTestimonial(
-                                testimonial
-                              )
-                            }
+                            onClick={() => startEditTestimonial(testimonial)}
                             className="button-secondary"
                           >
                             Edit
@@ -1924,23 +1908,19 @@ export default function AdminConsole() {
                             type="button"
                             onClick={() =>
                               operation({
-                                action:
-                                  "testimonial",
+                                action: "testimonial",
 
-                                id:
-                                  testimonial.id,
+                                id: testimonial.id,
 
                                 status:
-                                  testimonial.status ===
-                                    "PUBLISHED"
+                                  testimonial.status === "PUBLISHED"
                                     ? "ARCHIVED"
-                                    : "PUBLISHED"
+                                    : "PUBLISHED",
                               })
                             }
                             className="button-secondary"
                           >
-                            {testimonial.status ===
-                              "PUBLISHED"
+                            {testimonial.status === "PUBLISHED"
                               ? "Archive"
                               : "Publish"}
                           </button>
@@ -1948,14 +1928,106 @@ export default function AdminConsole() {
                       </div>
                     )}
                   </div>
-                )
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-    )}
-    {section === "audit" && <section className="mt-10"><h2 className="font-display text-3xl">Administrative activity</h2><div className="mt-5 space-y-3">{operations.auditLogs.length === 0 ? <p className="text-sm text-ink/60">No content activity recorded yet.</p> : operations.auditLogs.map((log) => <div key={log.id} className="card flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between"><p><span className="font-semibold">{log.action}</span> {log.entity.toLowerCase().replace("_", " ")}{log.entityId ? ` (${log.entityId})` : ""}</p><p className="text-ink/55">{log.actor} · {display(log.createdAt)}</p></div>)}</div></section>}
-    {section === "policy" && <section className="mt-10 max-w-xl"><h2 className="font-display text-3xl">Cancellation & rescheduling</h2><div className="card mt-5 space-y-5"><label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={operations.cancellationPolicy.enabled} onChange={(event) => operation({ action: "policy", enabled: event.target.checked })} /> Allow customer cancellation</label><label className="block text-sm font-semibold">Minimum notice (hours)<input type="number" min="0" max="168" value={operations.cancellationPolicy.minimumHours} onChange={(event) => operation({ action: "policy", minimumHours: Number(event.target.value) })} className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" /></label><label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={operations.cancellationPolicy.allowReschedule} onChange={(event) => operation({ action: "policy", allowReschedule: event.target.checked })} /> Allow customer rescheduling</label><label className="block text-sm font-semibold">Reschedule limit<input type="number" min="0" max="5" value={operations.cancellationPolicy.rescheduleLimit} onChange={(event) => operation({ action: "policy", rescheduleLimit: Number(event.target.value) })} className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3" /></label><p className="text-sm leading-6 text-ink/60">Policy changes apply to new customer actions immediately. Administrators can always resolve operational bookings.</p></div></section>}
-  </div>;
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+      {section === "audit" && (
+        <section className="mt-10">
+          <h2 className="font-display text-3xl">Administrative activity</h2>
+          <div className="mt-5 space-y-3">
+            {operations.auditLogs.length === 0 ? (
+              <p className="text-sm text-ink/60">
+                No content activity recorded yet.
+              </p>
+            ) : (
+              operations.auditLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="card flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <p>
+                    <span className="font-semibold">{log.action}</span>{" "}
+                    {log.entity.toLowerCase().replace("_", " ")}
+                    {log.entityId ? ` (${log.entityId})` : ""}
+                  </p>
+                  <p className="text-ink/55">
+                    {log.actor} · {display(log.createdAt)}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+      {section === "policy" && (
+        <section className="mt-10 max-w-xl">
+          <h2 className="font-display text-3xl">Cancellation & rescheduling</h2>
+          <div className="card mt-5 space-y-5">
+            <label className="flex items-center gap-3 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={operations.cancellationPolicy.enabled}
+                onChange={(event) =>
+                  operation({ action: "policy", enabled: event.target.checked })
+                }
+              />{" "}
+              Allow customer cancellation
+            </label>
+            <label className="block text-sm font-semibold">
+              Minimum notice (hours)
+              <input
+                type="number"
+                min="0"
+                max="168"
+                value={operations.cancellationPolicy.minimumHours}
+                onChange={(event) =>
+                  operation({
+                    action: "policy",
+                    minimumHours: Number(event.target.value),
+                  })
+                }
+                className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+            </label>
+            <label className="flex items-center gap-3 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={operations.cancellationPolicy.allowReschedule}
+                onChange={(event) =>
+                  operation({
+                    action: "policy",
+                    allowReschedule: event.target.checked,
+                  })
+                }
+              />{" "}
+              Allow customer rescheduling
+            </label>
+            <label className="block text-sm font-semibold">
+              Reschedule limit
+              <input
+                type="number"
+                min="0"
+                max="5"
+                value={operations.cancellationPolicy.rescheduleLimit}
+                onChange={(event) =>
+                  operation({
+                    action: "policy",
+                    rescheduleLimit: Number(event.target.value),
+                  })
+                }
+                className="mt-2 w-full rounded-xl border border-ink/15 px-4 py-3"
+              />
+            </label>
+            <p className="text-sm leading-6 text-ink/60">
+              Policy changes apply to new customer actions immediately.
+              Administrators can always resolve operational bookings.
+            </p>
+          </div>
+        </section>
+      )}
+    </div>
+  );
 }

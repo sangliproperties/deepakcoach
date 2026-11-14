@@ -34,7 +34,7 @@ export default function HeaderSignOut() {
             type="button"
             onClick={handleSignOut}
             disabled={signingOut}
-            className="text-sm font-semibold text-coral hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+            className="text-sm font-semibold text-coral hover:underline disabled:cursor-not-allowed disabled:opacity-60 shrink-0 whitespace-nowrap"
         >
             {signingOut ? "Signing out..." : "Sign out"}
         </button>

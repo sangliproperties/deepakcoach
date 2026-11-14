@@ -27,82 +27,81 @@ export default async function RootLayout({
           Skip to content
         </a>
         <header className="border-b border-ink/10 bg-[#fbfaf6]/95 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-4 lg:px-6 xl:px-8">
+          <div className="mx-auto grid w-full max-w-[1800px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 lg:px-6 xl:grid-cols-[max-content_minmax(0,1fr)_max-content] xl:gap-x-5 xl:px-8">
             <Link
               href="/"
-              className="flex shrink-0 items-center gap-2 lg:gap-3"
-              aria-label="Deepak Khot home"
+              className="flex min-w-0 items-center gap-2 lg:gap-3"
+              aria-label="Durdrushti Solutions home"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-moss font-display text-xl text-white">
-                D
-              </span>
-              <span>
-                <span className="block font-display text-lg font-semibold">
-                  Deepak Khot
-                </span>
-                <span className="block text-xs text-ink/60">
-                  Life coaching & personal development
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white 2xl:h-16 2xl:w-16">
+                <img
+                  src="/logo/Durdrushti Solutions Green Gold Logo.png"
+                  alt="Deepak Khot Logo"
+                  className="h-full w-full object-contain"
+                />
+              </div>
+
+              <span className="flex items-center gap-3">
+                {/*   <span className="h-10 w-0.5 shrink-0 rounded-full bg-[#245D4F]" /> */}
+
+                <span className="flex flex-col">
+                  <span className="block whitespace-nowrap font-display text-lg font-extrabold tracking-tight text-[#20242A] xl:text-xl 2xl:text-2xl">
+                    Durdrushti Solutions
+                  </span>
+
+                  <span className="mt-0.5 block text-xs font-medium text-[#64748B]">
+                    Business Life coaching..!!
+                  </span>
                 </span>
               </span>
             </Link>
+
             <nav
               aria-label="Primary navigation"
-              className="hidden min-w-0 items-center justify-center gap-3 whitespace-nowrap text-sm font-medium lg:gap-4 xl:flex"
+              className="premium-header-scroll hidden min-w-0 w-full items-center justify-center gap-1 overflow-x-auto whitespace-nowrap xl:flex"
             >
-              <Link
-                href="/#approach"
-                className="whitespace-nowrap hover:text-moss"
-              >
-                Approach
-              </Link>
-
-              <Link
-                href="/programs"
-                className="whitespace-nowrap hover:text-moss"
-              >
-                Programs
-              </Link>
-
-              <Link
-                href="/sessions"
-                className="whitespace-nowrap hover:text-moss"
-              >
-                YouTube Sessions
-              </Link>
-
-              <Link
-                href="/paid-sessions"
-                className="whitespace-nowrap hover:text-moss"
-              >
-                Paid Sessions
-              </Link>
-
-              <Link
-                href="/#stories"
-                className="whitespace-nowrap hover:text-moss"
-              >
-                Stories
-              </Link>
-
               {!isAdmin && (
                 <>
-                  <Link
-                    href="/contact"
-                    className="whitespace-nowrap hover:text-moss"
-                  >
-                    Contact
-                  </Link>
-
-                  <Link
-                    href="/about"
-                    className="whitespace-nowrap hover:text-moss"
-                  >
+                  <Link href="/about" className="premium-nav-link">
                     About
                   </Link>
                 </>
               )}
+
+              <Link href="/#approach" className="premium-nav-link">
+                Approach
+              </Link>
+
+              <Link href="/programs" className="premium-nav-link">
+                Programs
+              </Link>
+
+              <Link href="/sessions" className="premium-nav-link">
+                YouTube Sessions
+              </Link>
+
+              <Link href="/paid-sessions" className="premium-nav-link">
+                Paid Sessions
+              </Link>
+
+              <Link href="/#stories" className="premium-nav-link">
+                Stories
+              </Link>
+
+              <Link href="/our-services" className="premium-nav-link">
+                Our Services
+              </Link>
+
+              {!isAdmin && (
+                <>
+                  <Link href="/contact" className="premium-nav-link">
+                    Contact
+                  </Link>
+                </>
+              )}
             </nav>
-            <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+
+            <div className="flex min-w-0 items-center justify-end gap-2 whitespace-nowrap">
               {user ? (
                 <>
                   {user.role === "ADMIN" && (
@@ -126,7 +125,7 @@ export default async function RootLayout({
                   {user.role === "CUSTOMER" && (
                     <Link
                       href="/account"
-                      className="hidden items-center gap-2 rounded-full border border-moss/20 bg-moss/5 px-3 py-2 text-sm font-semibold text-moss transition hover:bg-moss/10 sm:inline-flex"
+                      className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-moss/20 bg-moss/5 px-3 py-2 text-sm font-semibold text-moss transition hover:bg-moss/10 sm:inline-flex"
                     >
                       <span
                         className="flex h-7 w-7 items-center justify-center rounded-full bg-moss text-xs font-bold text-white"
@@ -150,7 +149,7 @@ export default async function RootLayout({
 
                   <Link
                     href="/book"
-                    className="button-primary whitespace-nowrap"
+                    className="button-primary premium-book-button whitespace-nowrap"
                   >
                     Book a session
                   </Link>
@@ -176,33 +175,37 @@ export default async function RootLayout({
             className="mx-auto flex w-full max-w-[1600px] gap-4 overflow-x-auto px-5 pb-3 text-sm font-medium xl:hidden"
           >
             {!isAdmin && (
-              <Link href="/about" className="whitespace-nowrap">
+              <Link href="/about" className="premium-nav-link">
                 About
               </Link>
             )}
 
-            <Link href="/#approach" className="whitespace-nowrap">
+            <Link href="/#approach" className="premium-nav-link">
               Approach
             </Link>
 
-            <Link href="/programs" className="whitespace-nowrap">
+            <Link href="/programs" className="premium-nav-link">
               Programs
             </Link>
 
-            <Link href="/sessions" className="whitespace-nowrap">
+            <Link href="/sessions" className="premium-nav-link">
               Youtube Sessions
             </Link>
 
-            <Link href="/paid-sessions" className="whitespace-nowrap">
+            <Link href="/paid-sessions" className="premium-nav-link">
               Paid Sessions
             </Link>
 
-            <Link href="/#stories" className="whitespace-nowrap">
+            <Link href="/#stories" className="premium-nav-link">
               Stories
             </Link>
 
+            <Link href="/our-services" className="premium-nav-link">
+              Our Services
+            </Link>
+
             {!isAdmin && (
-              <Link href="/contact" className="whitespace-nowrap">
+              <Link href="/contact" className="premium-nav-link">
                 Contact
               </Link>
             )}
@@ -226,6 +229,10 @@ export default async function RootLayout({
                   About
                 </Link>
               )}
+
+              <Link href="/our-services" className="hover:text-moss">
+                Our Services
+              </Link>
 
               <Link href="/sessions" className="hover:text-moss">
                 YouTube

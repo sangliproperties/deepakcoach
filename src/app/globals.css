@@ -50,3 +50,111 @@ textarea {
     @apply rounded-3xl border border-ink/10 bg-white p-6 shadow-soft;
   }
 }
+
+/* Premium header navigation */
+
+.premium-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: #263d34;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    color 250ms ease,
+    background-color 250ms ease,
+    transform 250ms ease;
+}
+
+.premium-nav-link::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: #245d4f;
+  transform: translateX(-50%);
+  transition: width 300ms ease;
+}
+
+.premium-nav-link:hover {
+  color: #245d4f;
+  background: #eaf4ed;
+  transform: translateY(-2px);
+}
+
+.premium-nav-link:hover::after,
+.premium-nav-link[aria-current="page"]::after {
+  width: calc(100% - 22px);
+}
+
+.premium-nav-link[aria-current="page"] {
+  color: #245d4f;
+  background: #eaf4ed;
+}
+
+.premium-nav-link:focus-visible {
+  outline: 2px solid #245d4f;
+  outline-offset: 3px;
+}
+
+.premium-book-button {
+  transition:
+    transform 250ms ease,
+    box-shadow 250ms ease,
+    filter 250ms ease;
+}
+
+.premium-book-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(36, 93, 79, 0.22);
+  filter: brightness(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-nav-link,
+  .premium-nav-link::after,
+  .premium-book-button {
+    transition: none;
+  }
+
+  .premium-nav-link:hover,
+  .premium-book-button:hover {
+    transform: none;
+  }
+}
+
+/* Compact single-row header navigation */
+
+.premium-header-scroll {
+  min-width: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+}
+
+.premium-header-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.premium-header-scroll .premium-nav-link {
+  flex-shrink: 0;
+  padding: 8px 6px;
+  font-size: 12px;
+}
+
+@media (min-width: 1536px) {
+  .premium-header-scroll .premium-nav-link {
+    padding: 8px 9px;
+    font-size: 13px;
+  }
+}
