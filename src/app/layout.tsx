@@ -26,7 +26,8 @@ export default async function RootLayout({
         >
           Skip to content
         </a>
-        <header className="border-b border-ink/10 bg-[#fbfaf6]/95 backdrop-blur">
+
+        <header className="sticky-site-header sticky top-0 z-50 w-full border-b border-ink/10 bg-[#FBFAF6] shadow-sm">
           <div className="mx-auto grid w-full max-w-[1800px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 lg:px-6 xl:grid-cols-[max-content_minmax(0,1fr)_max-content] xl:gap-x-5 xl:px-8">
             <Link
               href="/"
@@ -50,7 +51,7 @@ export default async function RootLayout({
                   </span>
 
                   <span className="mt-0.5 block text-xs font-medium text-[#64748B]">
-                    Business Life coaching..!!
+                    Business Life coaching
                   </span>
                 </span>
               </span>
