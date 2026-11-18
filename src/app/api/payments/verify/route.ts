@@ -1,177 +1,95 @@
 import { z } from "zod";
-
 import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { verifyCheckoutSignature } from "@/lib/razorpay";
+import { fulfillBooking } from "@/lib/razorpay-fulfillment";
 
-import {
-  ensureBookingMeeting,
-  getDatabaseBooking,
-  getDatabasePaymentForBooking,
-  markDatabasePayment
-} from "@/lib/booking-store";
-
-import { demoPaymentProvider } from "@/lib/payment";
-import { jsonError } from "@/lib/http";
-
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
 
   if (!user) {
-    return jsonError(
-      "Sign in required.",
-      401
-    );
+    return Response.json({ error: "Sign in required" }, { status: 401 });
+  }
+
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
 
   const parsed = z
     .object({
-      bookingId: z.string(),
-      paymentId: z.string(),
-      signature: z.string()
+      bookingId: z.string().min(1),
+      paymentId: z.string().min(1),
+      signature: z.string().min(1),
     })
-    .safeParse(await request.json());
+    .safeParse(body);
 
   if (!parsed.success) {
-    return jsonError(
-      "Payment details are incomplete."
-    );
+    return Response.json({ error: "Invalid payment details" }, { status: 400 });
   }
 
-  const booking =
-    await getDatabaseBooking(
-      parsed.data.bookingId
-    );
+  const payment = await prisma.payment.findUnique({
+    where: {
+      bookingId: parsed.data.bookingId,
+    },
+    include: { booking: true },
+  });
 
-  const payment =
-    await getDatabasePaymentForBooking(
-      parsed.data.bookingId
-    );
+  if (!payment || payment.booking.userId !== user.id) {
+    return Response.json({ error: "Booking not found" }, { status: 404 });
+  }
 
   if (
-    !booking ||
-    !payment ||
-    (
-      user.role !== "ADMIN" &&
-      booking.userId !== user.id
+    !payment.providerOrderId ||
+    !verifyCheckoutSignature(
+      payment.providerOrderId,
+      parsed.data.paymentId,
+      parsed.data.signature,
     )
   ) {
-    return jsonError(
-      "Booking not found.",
-      404
+    return Response.json(
+      { error: "Invalid payment signature" },
+      { status: 400 },
     );
   }
 
-  if (payment.status === "PAID") {
-    try {
-      await ensureBookingMeeting(
-        booking.id
-      );
-    } catch (error) {
-      console.error(
-        "Google Meet recovery failed:",
-        error
-      );
+  try {
+    await fulfillBooking(payment.providerOrderId, parsed.data.paymentId);
+
+    const confirmed = await prisma.booking.findUnique({
+      where: { id: parsed.data.bookingId },
+      include: { payment: true },
+    });
+
+    if (
+      !confirmed ||
+      confirmed.status !== "CONFIRMED" ||
+      confirmed.payment?.status !== "PAID"
+    ) {
+      throw new Error("Booking payment requires reconciliation");
     }
 
     return Response.json({
       booking: {
-        id: booking.id,
-        reference: booking.reference,
-        status: booking.status,
-        paymentStatus: payment.status
-      }
+        id: confirmed.id,
+        reference: confirmed.reference,
+        status: confirmed.status,
+        paymentStatus: confirmed.payment.status,
+      },
     });
-  }
-
-  if (!payment.providerOrderId) {
-    return jsonError(
-      "Payment order was not found.",
-      409
-    );
-  }
-
-  const verified =
-    demoPaymentProvider.verifySignature({
-      orderId:
-        payment.providerOrderId,
-
-      paymentId:
-        parsed.data.paymentId,
-
-      signature:
-        parsed.data.signature
-    });
-
-  if (!verified) {
-    const failed =
-      await markDatabasePayment(
-        booking.id,
-        "FAILED",
-        parsed.data.paymentId
-      );
+  } catch (error) {
+    console.error("Booking payment verification failed:", error);
 
     return Response.json(
       {
-        error:
-          "Payment verification failed.",
-
-        booking: failed
-          ? {
-            id: failed.booking.id,
-            reference:
-              failed.booking.reference,
-            status:
-              failed.booking.status,
-            paymentStatus:
-              failed.payment.status
-          }
-          : undefined
+        error: "Payment is awaiting confirmation. Please check again shortly.",
       },
-      {
-        status: 400
-      }
+      { status: 409 },
     );
   }
-
-  const updated =
-    await markDatabasePayment(
-      booking.id,
-      "PAID",
-      parsed.data.paymentId
-    );
-
-  if (!updated) {
-    return jsonError(
-      "Payment could not be updated.",
-      500
-    );
-  }
-
-  if (
-    updated.booking.status ===
-    "CONFIRMED"
-  ) {
-    try {
-      await ensureBookingMeeting(
-        updated.booking.id
-      );
-    } catch (error) {
-      console.error(
-        "Google Meet creation failed after payment:",
-        error
-      );
-    }
-  }
-
-  return Response.json({
-    booking: {
-      id: updated.booking.id,
-      reference:
-        updated.booking.reference,
-      status:
-        updated.booking.status,
-      paymentStatus:
-        updated.payment.status
-    }
-  });
 }

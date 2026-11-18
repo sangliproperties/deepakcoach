@@ -2,1174 +2,1080 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type { PaymentStatus } from "@prisma/client";
 import {
-    createBookingCalendarEvent,
-    cancelGoogleCalendarEvent,
-    updateGoogleCalendarEvent,
-    sendBookingMeetEmail
+  createBookingCalendarEvent,
+  cancelGoogleCalendarEvent,
+  updateGoogleCalendarEvent,
+  sendBookingMeetEmail,
 } from "@/lib/google-calendar";
+
+export const BOOKING_HOLD_MINUTES = 5;
+export const BOOKING_HOLD_MS = BOOKING_HOLD_MINUTES * 60 * 1000;
+
+import type { Prisma } from "@prisma/client";
+
+// Lock one availability slot for the duration of a transaction.
+// Every operation that claims or releases a slot must use this lock.
+
+export async function lockBookingSlot(
+  tx: Prisma.TransactionClient,
+  availabilityId: string,
+): Promise<void> {
+  await tx.$executeRaw`
+    SELECT pg_advisory_xact_lock(
+      hashtextextended(${availabilityId}, 0)
+    )
+  `;
+}
 
 // =====================================================
 // AVAILABILITY
 // =====================================================
 
 async function ensureRollingAvailability() {
-    const now = new Date();
+  const now = new Date();
 
-    // Indian Standard Time = UTC +05:30
-    const indiaOffsetMs =
-        (5 * 60 + 30) * 60 * 1000;
+  // Indian Standard Time = UTC +05:30
+  const indiaOffsetMs = (5 * 60 + 30) * 60 * 1000;
 
-    const indiaNow = new Date(
-        now.getTime() + indiaOffsetMs
-    );
+  const indiaNow = new Date(now.getTime() + indiaOffsetMs);
 
-    /*
-     * dayOffset = 1 -> Tomorrow
-     * dayOffset = 2 -> Day after tomorrow
-     * dayOffset = 3 -> Third future day
-     *
-     * Today is NOT included.
-     */
-    for (
-        let dayOffset = 1;
-        dayOffset <= 3;
-        dayOffset++
-    ) {
-        for (
-            let hour = 10;
-            hour < 18;
-            hour++
-        ) {
-            const istStart = new Date(
-                Date.UTC(
-                    indiaNow.getUTCFullYear(),
-                    indiaNow.getUTCMonth(),
-                    indiaNow.getUTCDate() + dayOffset,
-                    hour,
-                    0,
-                    0,
-                    0
-                )
-            );
+  /*
+   * dayOffset = 1 -> Tomorrow
+   * dayOffset = 2 -> Day after tomorrow
+   * dayOffset = 3 -> Third future day
+   *
+   * Today is NOT included.
+   */
+  for (let dayOffset = 1; dayOffset <= 3; dayOffset++) {
+    for (let hour = 10; hour < 18; hour++) {
+      const istStart = new Date(
+        Date.UTC(
+          indiaNow.getUTCFullYear(),
+          indiaNow.getUTCMonth(),
+          indiaNow.getUTCDate() + dayOffset,
+          hour,
+          0,
+          0,
+          0,
+        ),
+      );
 
-            // Convert IST to UTC for database storage.
-            const start = new Date(
-                istStart.getTime() -
-                indiaOffsetMs
-            );
+      // Convert IST to UTC for database storage.
+      const start = new Date(istStart.getTime() - indiaOffsetMs);
 
-            const end = new Date(
-                start.getTime() +
-                60 * 60 * 1000
-            );
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
 
-            const existing =
-                await prisma.availability.findFirst({
-                    where: {
-                        startsAt: start
-                    }
-                });
+      const existing = await prisma.availability.findFirst({
+        where: {
+          startsAt: start,
+        },
+      });
 
-            /*
-             * Only create the slot if it has
-             * never existed.
-             *
-             * IMPORTANT:
-             * If Admin previously removed/closed
-             * the slot, existing.isOpen will be
-             * false. We intentionally DO NOT
-             * reopen it here.
-             */
-            if (!existing) {
-                await prisma.availability.create({
-                    data: {
-                        startsAt: start,
-                        endsAt: end,
-                        isOpen: true
-                    }
-                });
-            }
-        }
+      /*
+       * Only create the slot if it has
+       * never existed.
+       *
+       * IMPORTANT:
+       * If Admin previously removed/closed
+       * the slot, existing.isOpen will be
+       * false. We intentionally DO NOT
+       * reopen it here.
+       */
+      if (!existing) {
+        await prisma.availability.create({
+          data: {
+            startsAt: start,
+            endsAt: end,
+            isOpen: true,
+          },
+        });
+      }
     }
+  }
 }
 
-export async function ensureBookingMeeting(
-    bookingId: string
-) {
-    const booking =
-        await prisma.booking.findUnique({
-            where: {
-                id: bookingId
-            },
+export async function ensureBookingMeeting(bookingId: string) {
+  const booking = await prisma.booking.findUnique({
+    where: {
+      id: bookingId,
+    },
 
-            include: {
-                user: true,
-                program: true,
-                availability: true
-            }
-        });
+    include: {
+      user: true,
+      program: true,
+      availability: true,
+    },
+  });
 
-    if (!booking) {
-        return null;
-    }
+  if (!booking) {
+    return null;
+  }
 
-    /*
-     * Don't generate another Meet if this
-     * booking already has one.
-     */
-    if (
-        booking.accessUrl &&
-        booking.meetEmailSentAt
-    ) {
-        return booking;
-    }
+  /*
+   * Don't generate another Meet if this
+   * booking already has one.
+   */
+  if (booking.accessUrl && booking.meetEmailSentAt) {
+    return booking;
+  }
 
-    if (
-        booking.accessUrl &&
-        !booking.meetEmailSentAt
-    ) {
-        await sendBookingMeetEmail({
-            customerName:
-                booking.user.name ||
-                booking.user.email,
-
-            customerEmail:
-                booking.user.email,
-
-            programTitle:
-                booking.program.title,
-
-            reference:
-                booking.reference,
-
-            startsAt:
-                booking.availability.startsAt,
-
-            endsAt:
-                booking.availability.endsAt,
-
-            meetUrl:
-                booking.accessUrl
-        });
-
-        return prisma.booking.update({
-            where: {
-                id: booking.id
-            },
-
-            data: {
-                meetEmailSentAt:
-                    new Date()
-            }
-        });
-    }
-
-    /*
-     * Only confirmed bookings should receive
-     * meeting details.
-     */
-    if (booking.status !== "CONFIRMED") {
-        return booking;
-    }
-
-    const calendar =
-        await createBookingCalendarEvent({
-            bookingId:
-                booking.id,
-
-            reference:
-                booking.reference,
-
-            customerName:
-                booking.user.name,
-
-            customerEmail:
-                booking.user.email,
-
-            programTitle:
-                booking.program.title,
-
-            startsAt:
-                booking.availability.startsAt,
-
-            endsAt:
-                booking.availability.endsAt
-        });
-
-    if (!calendar.meetUrl) {
-        throw new Error(
-            "Google Meet link was not returned."
-        );
-    }
-
-    const updatedBooking =
-        await prisma.booking.update({
-            where: {
-                id: booking.id
-            },
-
-            data: {
-                accessUrl:
-                    calendar.meetUrl,
-
-                accessInstructions:
-                    "Google Meet link for your scheduled coaching session.",
-
-                googleCalendarEventId:
-                    calendar.eventId,
-
-                googleCalendarEventUrl:
-                    calendar.eventUrl
-            }
-        });
-
-
+  if (booking.accessUrl && !booking.meetEmailSentAt) {
     await sendBookingMeetEmail({
-        customerName:
-            booking.user.name ||
-            booking.user.email,
+      customerName: booking.user.name || booking.user.email,
 
-        customerEmail:
-            booking.user.email,
+      customerEmail: booking.user.email,
 
-        programTitle:
-            booking.program.title,
+      programTitle: booking.program.title,
 
-        reference:
-            booking.reference,
+      reference: booking.reference,
 
-        startsAt:
-            booking.availability.startsAt,
+      startsAt: booking.availability.startsAt,
 
-        endsAt:
-            booking.availability.endsAt,
+      endsAt: booking.availability.endsAt,
 
-        meetUrl:
-            calendar.meetUrl
+      meetUrl: booking.accessUrl,
     });
 
+    return prisma.booking.update({
+      where: {
+        id: booking.id,
+      },
 
-    const finalBooking =
-        await prisma.booking.update({
-            where: {
-                id: booking.id
-            },
+      data: {
+        meetEmailSentAt: new Date(),
+      },
+    });
+  }
 
-            data: {
-                meetEmailSentAt:
-                    new Date()
-            }
-        });
+  /*
+   * Only confirmed bookings should receive
+   * meeting details.
+   */
+  if (booking.status !== "CONFIRMED") {
+    return booking;
+  }
 
+  const calendar = await createBookingCalendarEvent({
+    bookingId: booking.id,
 
-    return finalBooking;
+    reference: booking.reference,
+
+    customerName: booking.user.name,
+
+    customerEmail: booking.user.email,
+
+    programTitle: booking.program.title,
+
+    startsAt: booking.availability.startsAt,
+
+    endsAt: booking.availability.endsAt,
+  });
+
+  if (!calendar.meetUrl) {
+    throw new Error("Google Meet link was not returned.");
+  }
+
+  const updatedBooking = await prisma.booking.update({
+    where: {
+      id: booking.id,
+    },
+
+    data: {
+      accessUrl: calendar.meetUrl,
+
+      accessInstructions:
+        "Google Meet link for your scheduled coaching session.",
+
+      googleCalendarEventId: calendar.eventId,
+
+      googleCalendarEventUrl: calendar.eventUrl,
+    },
+  });
+
+  await sendBookingMeetEmail({
+    customerName: booking.user.name || booking.user.email,
+
+    customerEmail: booking.user.email,
+
+    programTitle: booking.program.title,
+
+    reference: booking.reference,
+
+    startsAt: booking.availability.startsAt,
+
+    endsAt: booking.availability.endsAt,
+
+    meetUrl: calendar.meetUrl,
+  });
+
+  const finalBooking = await prisma.booking.update({
+    where: {
+      id: booking.id,
+    },
+
+    data: {
+      meetEmailSentAt: new Date(),
+    },
+  });
+
+  return finalBooking;
 }
-
 
 export async function listDatabaseAvailability() {
-    await ensureRollingAvailability();
+  await ensureRollingAvailability();
 
-    const now = new Date();
+  const now = new Date();
 
-    const indiaOffsetMs =
-        (5 * 60 + 30) * 60 * 1000;
+  const indiaOffsetMs = (5 * 60 + 30) * 60 * 1000;
 
-    const indiaNow = new Date(
-        now.getTime() + indiaOffsetMs
-    );
+  const indiaNow = new Date(now.getTime() + indiaOffsetMs);
 
-    /*
-     * Tomorrow at 00:00 IST
-     */
-    const tomorrowIst = new Date(
-        Date.UTC(
-            indiaNow.getUTCFullYear(),
-            indiaNow.getUTCMonth(),
-            indiaNow.getUTCDate() + 1,
-            0,
-            0,
-            0,
-            0
-        )
-    );
+  /*
+   * Tomorrow at 00:00 IST
+   */
+  const tomorrowIst = new Date(
+    Date.UTC(
+      indiaNow.getUTCFullYear(),
+      indiaNow.getUTCMonth(),
+      indiaNow.getUTCDate() + 1,
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
 
-    const tomorrowStart = new Date(
-        tomorrowIst.getTime() -
-        indiaOffsetMs
-    );
+  const tomorrowStart = new Date(tomorrowIst.getTime() - indiaOffsetMs);
 
-    /*
-     * Start of fourth future day.
-     *
-     * We use this as the exclusive upper limit.
-     */
-    const fourthDayIst = new Date(
-        Date.UTC(
-            indiaNow.getUTCFullYear(),
-            indiaNow.getUTCMonth(),
-            indiaNow.getUTCDate() + 4,
-            0,
-            0,
-            0,
-            0
-        )
-    );
+  /*
+   * Start of fourth future day.
+   *
+   * We use this as the exclusive upper limit.
+   */
+  const fourthDayIst = new Date(
+    Date.UTC(
+      indiaNow.getUTCFullYear(),
+      indiaNow.getUTCMonth(),
+      indiaNow.getUTCDate() + 4,
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
 
-    const fourthDayStart = new Date(
-        fourthDayIst.getTime() -
-        indiaOffsetMs
-    );
+  const fourthDayStart = new Date(fourthDayIst.getTime() - indiaOffsetMs);
 
-    const slots =
-        await prisma.availability.findMany({
-            where: {
-                startsAt: {
-                    gte: tomorrowStart,
-                    lt: fourthDayStart
-                }
-            },
+  const slots = await prisma.availability.findMany({
+    where: {
+      startsAt: {
+        gte: tomorrowStart,
+        lt: fourthDayStart,
+      },
+    },
 
-            orderBy: {
-                startsAt: "asc"
-            },
+    orderBy: {
+      startsAt: "asc",
+    },
 
-            include: {
-                bookings: {
-                    where: {
-                        status: {
-                            in: [
-                                "PENDING",
-                                "CONFIRMED"
-                            ]
-                        }
-                    },
+    include: {
+      bookings: {
+        where: {
+          status: {
+            in: ["PENDING", "CONFIRMED"],
+          },
+        },
 
-                    select: {
-                        id: true
-                    }
-                }
-            }
-        });
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
 
-    return slots.map((slot) => ({
-        id: slot.id,
+  return slots.map((slot) => ({
+    id: slot.id,
 
-        startsAt:
-            slot.startsAt.toISOString(),
+    startsAt: slot.startsAt.toISOString(),
 
-        endsAt:
-            slot.endsAt.toISOString(),
+    endsAt: slot.endsAt.toISOString(),
 
-        isOpen:
-            slot.isOpen &&
-            slot.bookings.length === 0,
+    isOpen: slot.isOpen && slot.bookings.length === 0,
 
-        hasBooking:
-            slot.bookings.length > 0,
+    hasBooking: slot.bookings.length > 0,
 
-        isAdminClosed:
-            !slot.isOpen &&
-            slot.bookings.length === 0
-    }));
+    isAdminClosed: !slot.isOpen && slot.bookings.length === 0,
+  }));
 }
-
 
 export async function addDatabaseAvailability(
-    startsAt: string,
-    durationMins: number
+  startsAt: string,
+  durationMins: number,
 ) {
-    const start = new Date(startsAt);
+  const start = new Date(startsAt);
 
-    if (
-        Number.isNaN(start.getTime()) ||
-        start <= new Date()
-    ) {
-        return null;
-    }
+  if (Number.isNaN(start.getTime()) || start <= new Date()) {
+    return null;
+  }
 
-    const end = new Date(
-        start.getTime() +
-        durationMins * 60_000
-    );
+  const end = new Date(start.getTime() + durationMins * 60_000);
 
-    const conflict =
-        await prisma.availability.findFirst({
-            where: {
-                startsAt: {
-                    lt: end
-                },
-                endsAt: {
-                    gt: start
-                }
-            }
-        });
+  const conflict = await prisma.availability.findFirst({
+    where: {
+      startsAt: {
+        lt: end,
+      },
+      endsAt: {
+        gt: start,
+      },
+    },
+  });
 
-    if (conflict) {
-        return null;
-    }
+  if (conflict) {
+    return null;
+  }
 
-    const slot =
-        await prisma.availability.create({
-            data: {
-                startsAt: start,
-                endsAt: end,
-                isOpen: true
-            }
-        });
+  const slot = await prisma.availability.create({
+    data: {
+      startsAt: start,
+      endsAt: end,
+      isOpen: true,
+    },
+  });
 
-    return {
-        id: slot.id,
-        startsAt: slot.startsAt.toISOString(),
-        endsAt: slot.endsAt.toISOString(),
-        isOpen: slot.isOpen
-    };
+  return {
+    id: slot.id,
+    startsAt: slot.startsAt.toISOString(),
+    endsAt: slot.endsAt.toISOString(),
+    isOpen: slot.isOpen,
+  };
 }
 
+export async function removeDatabaseAvailability(id: string) {
+  /*
+   * Never close/remove a slot that has
+   * an active booking.
+   */
+  const booking = await prisma.booking.findFirst({
+    where: {
+      availabilityId: id,
 
-export async function removeDatabaseAvailability(
-    id: string
-) {
-    /*
-     * Never close/remove a slot that has
-     * an active booking.
-     */
-    const booking =
-        await prisma.booking.findFirst({
-            where: {
-                availabilityId: id,
+      status: {
+        not: "CANCELLED",
+      },
+    },
+  });
 
-                status: {
-                    not: "CANCELLED"
-                }
-            }
-        });
+  if (booking) {
+    return false;
+  }
 
-    if (booking) {
-        return false;
-    }
+  /*
+   * IMPORTANT:
+   *
+   * Do NOT delete the automatic slot.
+   *
+   * Mark it closed instead.
+   * This prevents ensureRollingAvailability()
+   * from automatically recreating it.
+   */
+  const result = await prisma.availability.updateMany({
+    where: {
+      id,
+    },
 
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT delete the automatic slot.
-     *
-     * Mark it closed instead.
-     * This prevents ensureRollingAvailability()
-     * from automatically recreating it.
-     */
-    const result =
-        await prisma.availability.updateMany({
-            where: {
-                id
-            },
+    data: {
+      isOpen: false,
+    },
+  });
 
-            data: {
-                isOpen: false
-            }
-        });
-
-    return result.count > 0;
+  return result.count > 0;
 }
 
-export async function recoverDatabaseAvailability(
-    id: string
-) {
-    /*
-     * Safety:
-     * Do not reopen a slot if it already
-     * has an active booking.
-     */
-    const booking =
-        await prisma.booking.findFirst({
-            where: {
-                availabilityId: id,
+export async function recoverDatabaseAvailability(id: string) {
+  /*
+   * Safety:
+   * Do not reopen a slot if it already
+   * has an active booking.
+   */
+  const booking = await prisma.booking.findFirst({
+    where: {
+      availabilityId: id,
 
-                status: {
-                    in: [
-                        "PENDING",
-                        "CONFIRMED"
-                    ]
-                }
-            }
-        });
+      status: {
+        in: ["PENDING", "CONFIRMED"],
+      },
+    },
+  });
 
-    if (booking) {
-        return false;
-    }
+  if (booking) {
+    return false;
+  }
 
-    /*
-     * Reopen the manually closed slot.
-     */
-    const result =
-        await prisma.availability.updateMany({
-            where: {
-                id,
-                isOpen: false
-            },
+  /*
+   * Reopen the manually closed slot.
+   */
+  const result = await prisma.availability.updateMany({
+    where: {
+      id,
+      isOpen: false,
+    },
 
-            data: {
-                isOpen: true
-            }
-        });
+    data: {
+      isOpen: true,
+    },
+  });
 
-    return result.count > 0;
+  return result.count > 0;
 }
-
 
 // =====================================================
 // BOOKINGS
 // =====================================================
 
 export async function createDatabaseBooking(input: {
-    userId: string;
-    programId: string;
-    availabilityId: string;
+  userId: string;
+  programId: string;
+  availabilityId: string;
 }) {
-    return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
+    await lockBookingSlot(tx, input.availabilityId);
+    const program = await tx.program.findUnique({
+      where: {
+        id: input.programId,
+      },
+    });
 
-        const program =
-            await tx.program.findUnique({
-                where: {
-                    id: input.programId
-                }
-            });
+    if (!program || !program.active) {
+      return {
+        error: "SLOT_UNAVAILABLE" as const,
+      };
+    }
 
-        if (!program || !program.active) {
-            return {
-                error: "SLOT_UNAVAILABLE" as const
-            };
-        }
+    const slot = await tx.availability.findUnique({
+      where: {
+        id: input.availabilityId,
+      },
+    });
 
-        const slot =
-            await tx.availability.findUnique({
-                where: {
-                    id: input.availabilityId
-                }
-            });
+    if (!slot || !slot.isOpen || slot.startsAt <= new Date()) {
+      return {
+        error: "SLOT_UNAVAILABLE" as const,
+      };
+    }
 
-        if (
-            !slot ||
-            !slot.isOpen ||
-            slot.startsAt <= new Date()
-        ) {
-            return {
-                error: "SLOT_UNAVAILABLE" as const
-            };
-        }
+    const existingBooking = await tx.booking.findFirst({
+      where: {
+        availabilityId: input.availabilityId,
 
-        const existingBooking =
-            await tx.booking.findFirst({
-                where: {
-                    availabilityId:
-                        input.availabilityId,
+        status: {
+          in: ["PENDING", "CONFIRMED"],
+        },
+      },
+    });
 
-                    status: {
-                        in: [
-                            "PENDING",
-                            "CONFIRMED"
-                        ]
-                    }
-                }
-            });
+    if (existingBooking) {
+      return {
+        error: "SLOT_ALREADY_BOOKED" as const,
+      };
+    }
 
-        if (existingBooking) {
-            return {
-                error: "SLOT_ALREADY_BOOKED" as const
-            };
-        }
+    const reference = `DK-${randomBytes(4).toString("hex").toUpperCase()}`;
 
-        const reference =
-            `DK-${randomBytes(4)
-                .toString("hex")
-                .toUpperCase()}`;
+    const booking = await tx.booking.create({
+      data: {
+        reference,
+        userId: input.userId,
+        programId: input.programId,
+        availabilityId: input.availabilityId,
 
-        const booking =
-            await tx.booking.create({
-                data: {
-                    reference,
-                    userId: input.userId,
-                    programId: input.programId,
-                    availabilityId:
-                        input.availabilityId,
+        status: program.priceInr === 0 ? "CONFIRMED" : "PENDING",
 
-                    status:
-                        program.priceInr === 0
-                            ? "CONFIRMED"
-                            : "PENDING",
+        holdExpiresAt:
+          program.priceInr > 0 ? new Date(Date.now() + BOOKING_HOLD_MS) : null,
 
-                    ...(program.priceInr > 0
-                        ? {
-                            payment: {
-                                create: {
-                                    amountInr: program.priceInr,
-                                    status: "CREATED"
-                                }
-                            }
-                        }
-                        : {})
+        ...(program.priceInr > 0
+          ? {
+              payment: {
+                create: {
+                  amountInr: program.priceInr,
+                  status: "CREATED",
                 },
-
-                include: {
-                    payment: true
-                }
-            });
-
-        return {
-            booking
-        };
-    });
-}
-
-
-export async function getDatabaseBooking(
-    id: string
-) {
-    return prisma.booking.findUnique({
-        where: {
-            id
-        },
-
-        include: {
-            payment: true,
-            program: true,
-            availability: true,
-            user: true
-        }
-    });
-}
-
-
-export async function listDatabaseBookings(
-    userId?: string
-) {
-    return prisma.booking.findMany({
-        where: userId
-            ? {
-                userId
+              },
             }
-            : undefined,
+          : {}),
+      },
 
-        orderBy: {
-            createdAt: "desc"
-        },
-
-        include: {
-            payment: true,
-            program: true,
-            availability: true
-        }
+      include: {
+        payment: true,
+      },
     });
+
+    return {
+      booking,
+    };
+  });
 }
 
+export async function getDatabaseBooking(id: string) {
+  return prisma.booking.findUnique({
+    where: {
+      id,
+    },
+
+    include: {
+      payment: true,
+      program: true,
+      availability: true,
+      user: true,
+    },
+  });
+}
+
+export async function listDatabaseBookings(userId?: string) {
+  return prisma.booking.findMany({
+    where: userId
+      ? {
+          userId,
+        }
+      : undefined,
+
+    orderBy: {
+      createdAt: "desc",
+    },
+
+    include: {
+      payment: true,
+      program: true,
+      availability: true,
+    },
+  });
+}
 
 // =====================================================
 // PAYMENT
 // =====================================================
 
-export async function getDatabasePaymentForBooking(
-    bookingId: string
-) {
-    return prisma.payment.findUnique({
-        where: {
-            bookingId
-        }
-    });
+export async function getDatabasePaymentForBooking(bookingId: string) {
+  return prisma.payment.findUnique({
+    where: {
+      bookingId,
+    },
+  });
 }
-
 
 export async function setDatabasePaymentOrder(
-    bookingId: string,
-    orderId: string
+  bookingId: string,
+  orderId: string,
 ) {
-    return prisma.payment.update({
-        where: {
-            bookingId
-        },
+  const result = await prisma.payment.updateMany({
+    where: {
+      bookingId,
+      status: "CREATED",
+      providerOrderId: null,
+    },
+    data: {
+      providerOrderId: orderId,
+    },
+  });
 
-        data: {
-            providerOrderId: orderId
-        }
-    });
+  if (result.count !== 1) {
+    throw new Error(
+      "Payment order cannot be assigned: " +
+        "an order may already exist or the payment status has changed.",
+    );
+  }
+
+  const payment = await prisma.payment.findUnique({
+    where: {
+      bookingId,
+    },
+  });
+
+  if (!payment || payment.providerOrderId !== orderId) {
+    throw new Error("Payment order assignment could not be verified.");
+  }
+
+  return payment;
 }
-
 
 export async function markDatabasePayment(
-    bookingId: string,
-    status: PaymentStatus,
-    paymentId?: string
+  bookingId: string,
+  status: PaymentStatus,
+  paymentId?: string,
 ) {
-    return prisma.$transaction(async (tx) => {
-
-        const payment =
-            await tx.payment.findUnique({
-                where: {
-                    bookingId
-                }
-            });
-
-        const booking =
-            await tx.booking.findUnique({
-                where: {
-                    id: bookingId
-                }
-            });
-
-        if (!payment || !booking) {
-            return null;
-        }
-
-        if (payment.status === "PAID") {
-            return {
-                payment,
-                booking
-            };
-        }
-
-        const updatedPayment =
-            await tx.payment.update({
-                where: {
-                    bookingId
-                },
-
-                data: {
-                    status,
-                    providerPaymentId:
-                        paymentId || undefined
-                }
-            });
-
-        let bookingStatus =
-            booking.status;
-
-        if (status === "PAID") {
-            bookingStatus = "CONFIRMED";
-        }
-
-        if (status === "FAILED") {
-            bookingStatus = "FAILED";
-        }
-
-        if (status === "CANCELLED") {
-            bookingStatus = "CANCELLED";
-        }
-
-        const updatedBooking =
-            await tx.booking.update({
-                where: {
-                    id: bookingId
-                },
-
-                data: {
-                    status: bookingStatus
-                }
-            });
-
-        return {
-            payment: updatedPayment,
-            booking: updatedBooking
-        };
+  return prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.findUnique({
+      where: {
+        bookingId,
+      },
     });
-}
 
+    const booking = await tx.booking.findUnique({
+      where: {
+        id: bookingId,
+      },
+    });
+
+    if (!payment || !booking) {
+      return null;
+    }
+
+    if (payment.status === "PAID") {
+      return {
+        payment,
+        booking,
+      };
+    }
+
+    const updatedPayment = await tx.payment.update({
+      where: {
+        bookingId,
+      },
+
+      data: {
+        status,
+        providerPaymentId: paymentId || undefined,
+      },
+    });
+
+    let bookingStatus = booking.status;
+
+    if (status === "PAID") {
+      bookingStatus = "CONFIRMED";
+    }
+
+    if (status === "FAILED") {
+      bookingStatus = "FAILED";
+    }
+
+    if (status === "CANCELLED") {
+      bookingStatus = "CANCELLED";
+    }
+
+    const updatedBooking = await tx.booking.update({
+      where: {
+        id: bookingId,
+      },
+
+      data: {
+        status: bookingStatus,
+      },
+    });
+
+    return {
+      payment: updatedPayment,
+      booking: updatedBooking,
+    };
+  });
+}
 
 // =====================================================
 // CANCEL
 // =====================================================
 
-export async function cancelDatabaseBooking(
-    id: string,
-    userId: string,
-    isAdmin = false
-) {
-    const booking =
-        await prisma.booking.findUnique({
-            where: {
-                id
-            },
+export async function cancelVerifiedUnpaidHold(
+  bookingId: string,
+): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.booking.findUnique({
+      where: { id: bookingId },
+      select: { availabilityId: true },
+    });
 
-            include: {
-                availability: true,
-                payment: true
-            }
-        });
+    if (!existing) return false;
+
+    await lockBookingSlot(tx, existing.availabilityId);
+
+    const booking = await tx.booking.findUnique({
+      where: { id: bookingId },
+      include: { payment: true },
+    });
 
     if (
-        !booking ||
-        (!isAdmin &&
-            booking.userId !== userId)
+      !booking ||
+      booking.status !== "PENDING" ||
+      !booking.holdExpiresAt ||
+      booking.holdExpiresAt > new Date() ||
+      !booking.payment ||
+      booking.payment.status !== "CREATED"
     ) {
-        return {
-            error: "NOT_FOUND" as const
-        };
+      return false;
     }
 
-    if (booking.status === "CANCELLED") {
-        return {
-            booking
-        };
-    }
-
-    /*
-     * Your existing demo-store has configurable
-     * cancellation-policy logic.
-     *
-     * We are preserving the basic cancellation here.
-     * We can migrate CancellationPolicy separately.
-     */
-
-    const updated =
-        await prisma.booking.update({
-            where: {
-                id
-            },
-
-            data: {
-                status: "CANCELLED",
-                cancelledAt: new Date(),
-
-                ...(booking.payment &&
-                    booking.payment.status !== "PAID"
-                    ? {
-                        payment: {
-                            update: {
-                                status: "CANCELLED"
-                            }
-                        }
-                    }
-                    : {})
-            },
-
-            include: {
-                payment: true,
-                availability: true,
-                program: true
-            }
-        });
-
-    return {
-        booking: updated
-    };
-}
-
-export async function syncCancelledBookingCalendar(
-    bookingId: string
-) {
-    const booking =
-        await prisma.booking.findUnique({
-            where: {
-                id: bookingId
-            },
-
-            select: {
-                googleCalendarEventId: true
-            }
-        });
-
-    if (!booking?.googleCalendarEventId) {
-        return;
-    }
-
-    await cancelGoogleCalendarEvent(
-        booking.googleCalendarEventId
-    );
-
-    await prisma.booking.update({
-        where: {
-            id: bookingId
-        },
-
-        data: {
-            googleCalendarEventId: null,
-            googleCalendarEventUrl: null,
-            accessUrl: null,
-            accessInstructions: null
-        }
+    const paymentUpdate = await tx.payment.updateMany({
+      where: {
+        id: booking.payment.id,
+        status: "CREATED",
+        providerPaymentId: null,
+      },
+      data: {
+        status: "CANCELLED",
+      },
     });
+
+    if (paymentUpdate.count !== 1) {
+      return false;
+    }
+
+    const bookingUpdate = await tx.booking.updateMany({
+      where: {
+        id: bookingId,
+        status: "PENDING",
+        holdExpiresAt: { lte: new Date() },
+      },
+      data: {
+        status: "CANCELLED",
+        cancelledAt: new Date(),
+      },
+    });
+
+    if (bookingUpdate.count !== 1) {
+      throw new Error("Booking hold changed during cancellation.");
+    }
+
+    return true;
+  });
 }
 
+export async function cancelDatabaseBooking(
+  id: string,
+  userId: string,
+  isAdmin = false,
+) {
+  const booking = await prisma.booking.findUnique({
+    where: {
+      id,
+    },
+
+    include: {
+      availability: true,
+      payment: true,
+    },
+  });
+
+  if (!booking || (!isAdmin && booking.userId !== userId)) {
+    return {
+      error: "NOT_FOUND" as const,
+    };
+  }
+
+  if (booking.status === "CANCELLED") {
+    return {
+      booking,
+    };
+  }
+
+  /*
+   * Your existing demo-store has configurable
+   * cancellation-policy logic.
+   *
+   * We are preserving the basic cancellation here.
+   * We can migrate CancellationPolicy separately.
+   */
+
+  const updated = await prisma.booking.update({
+    where: {
+      id,
+    },
+
+    data: {
+      status: "CANCELLED",
+      cancelledAt: new Date(),
+
+      ...(booking.payment && booking.payment.status !== "PAID"
+        ? {
+            payment: {
+              update: {
+                status: "CANCELLED",
+              },
+            },
+          }
+        : {}),
+    },
+
+    include: {
+      payment: true,
+      availability: true,
+      program: true,
+    },
+  });
+
+  return {
+    booking: updated,
+  };
+}
+
+export async function syncCancelledBookingCalendar(bookingId: string) {
+  const booking = await prisma.booking.findUnique({
+    where: {
+      id: bookingId,
+    },
+
+    select: {
+      googleCalendarEventId: true,
+    },
+  });
+
+  if (!booking?.googleCalendarEventId) {
+    return;
+  }
+
+  await cancelGoogleCalendarEvent(booking.googleCalendarEventId);
+
+  await prisma.booking.update({
+    where: {
+      id: bookingId,
+    },
+
+    data: {
+      googleCalendarEventId: null,
+      googleCalendarEventUrl: null,
+      accessUrl: null,
+      accessInstructions: null,
+    },
+  });
+}
 
 // =====================================================
 // RESCHEDULE
 // =====================================================
 
 export async function rescheduleDatabaseBooking(
-    id: string,
-    userId: string,
-    availabilityId: string,
-    isAdmin = false
+  id: string,
+  userId: string,
+  availabilityId: string,
+  isAdmin = false,
 ) {
-    return prisma.$transaction(async (tx) => {
-
-        const booking =
-            await tx.booking.findUnique({
-                where: {
-                    id
-                }
-            });
-
-        if (
-            !booking ||
-            (!isAdmin &&
-                booking.userId !== userId)
-        ) {
-            return {
-                error: "NOT_FOUND" as const
-            };
-        }
-
-        const slot =
-            await tx.availability.findUnique({
-                where: {
-                    id: availabilityId
-                }
-            });
-
-        if (
-            !slot ||
-            !slot.isOpen ||
-            slot.startsAt <= new Date()
-        ) {
-            return {
-                error: "INVALID_RESCHEDULE" as const
-            };
-        }
-
-        const claimed =
-            await tx.booking.findFirst({
-                where: {
-                    availabilityId,
-
-                    id: {
-                        not: id
-                    },
-
-                    status: {
-                        in: [
-                            "PENDING",
-                            "CONFIRMED"
-                        ]
-                    }
-                }
-            });
-
-        if (claimed) {
-            return {
-                error: "SLOT_ALREADY_BOOKED" as const
-            };
-        }
-
-        const updated =
-            await tx.booking.update({
-                where: {
-                    id
-                },
-
-                data: {
-                    rescheduledFromId:
-                        booking.availabilityId,
-
-                    availabilityId,
-
-                    rescheduleCount: {
-                        increment: 1
-                    }
-                },
-
-                include: {
-                    payment: true,
-                    program: true,
-                    availability: true
-                }
-            });
-
-        return {
-            booking: updated
-        };
+  return prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: {
+        id,
+      },
     });
-}
 
-export async function syncRescheduledBookingCalendar(
-    bookingId: string
-) {
-    const booking =
-        await prisma.booking.findUnique({
-            where: {
-                id: bookingId
-            },
-
-            include: {
-                availability: true
-            }
-        });
-
-    if (
-        !booking ||
-        !booking.googleCalendarEventId
-    ) {
-        return;
+    if (!booking || (!isAdmin && booking.userId !== userId)) {
+      return {
+        error: "NOT_FOUND" as const,
+      };
     }
 
-    await updateGoogleCalendarEvent(
-        booking.googleCalendarEventId,
-        {
-            startsAt:
-                booking.availability.startsAt,
+    const slot = await tx.availability.findUnique({
+      where: {
+        id: availabilityId,
+      },
+    });
 
-            endsAt:
-                booking.availability.endsAt
-        }
-    );
+    if (!slot || !slot.isOpen || slot.startsAt <= new Date()) {
+      return {
+        error: "INVALID_RESCHEDULE" as const,
+      };
+    }
+
+    const claimed = await tx.booking.findFirst({
+      where: {
+        availabilityId,
+
+        id: {
+          not: id,
+        },
+
+        status: {
+          in: ["PENDING", "CONFIRMED"],
+        },
+      },
+    });
+
+    if (claimed) {
+      return {
+        error: "SLOT_ALREADY_BOOKED" as const,
+      };
+    }
+
+    const updated = await tx.booking.update({
+      where: {
+        id,
+      },
+
+      data: {
+        rescheduledFromId: booking.availabilityId,
+
+        availabilityId,
+
+        rescheduleCount: {
+          increment: 1,
+        },
+      },
+
+      include: {
+        payment: true,
+        program: true,
+        availability: true,
+      },
+    });
+
+    return {
+      booking: updated,
+    };
+  });
 }
 
+export async function syncRescheduledBookingCalendar(bookingId: string) {
+  const booking = await prisma.booking.findUnique({
+    where: {
+      id: bookingId,
+    },
+
+    include: {
+      availability: true,
+    },
+  });
+
+  if (!booking || !booking.googleCalendarEventId) {
+    return;
+  }
+
+  await updateGoogleCalendarEvent(booking.googleCalendarEventId, {
+    startsAt: booking.availability.startsAt,
+
+    endsAt: booking.availability.endsAt,
+  });
+}
 
 // =====================================================
 // ADMIN SCHEDULE
 // =====================================================
 
 export async function listAdminBookings(input?: {
-    startDate?: Date;
-    endDate?: Date;
-    paymentStatus?: PaymentStatus;
-    page?: number;
-    pageSize?: number;
+  startDate?: Date;
+  endDate?: Date;
+  paymentStatus?: PaymentStatus;
+  page?: number;
+  pageSize?: number;
 }) {
-    const page = Math.max(1, input?.page ?? 1);
-    const pageSize = input?.pageSize ?? 20;
-    const skip = (page - 1) * pageSize;
-    return prisma.booking.findMany({
-
-        where: {
-            ...(input?.startDate ||
-                input?.endDate
-                ? {
-                    availability: {
-                        startsAt: {
-                            ...(input?.startDate
-                                ? {
-                                    gte:
-                                        input.startDate
-                                }
-                                : {}),
-
-                            ...(input?.endDate
-                                ? {
-                                    lt:
-                                        input.endDate
-                                }
-                                : {})
-                        }
-                    }
-                }
-                : {}),
-
-            ...(input?.paymentStatus
-                ? {
-                    payment: {
-                        is: {
-                            status:
-                                input.paymentStatus
-                        }
-                    }
-                }
-                : {})
-        },
-
-        select: {
-            id: true,
-            reference: true,
-            status: true,
-            createdAt: true,
-            cancelledAt: true,
-
-            accessUrl: true,
-            accessInstructions: true,
-
-            googleCalendarEventId: true,
-            googleCalendarEventUrl: true,
-
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    phone: true
-                }
-            },
-
-            program: {
-                select: {
-                    id: true,
-                    title: true,
-                    priceInr: true,
-                    durationMins: true
-                }
-            },
-
+  const page = Math.max(1, input?.page ?? 1);
+  const pageSize = input?.pageSize ?? 20;
+  const skip = (page - 1) * pageSize;
+  return prisma.booking.findMany({
+    where: {
+      ...(input?.startDate || input?.endDate
+        ? {
             availability: {
-                select: {
-                    id: true,
-                    startsAt: true,
-                    endsAt: true
-                }
+              startsAt: {
+                ...(input?.startDate
+                  ? {
+                      gte: input.startDate,
+                    }
+                  : {}),
+
+                ...(input?.endDate
+                  ? {
+                      lt: input.endDate,
+                    }
+                  : {}),
+              },
             },
+          }
+        : {}),
 
+      ...(input?.paymentStatus
+        ? {
             payment: {
-                select: {
-                    id: true,
-                    amountInr: true,
-                    status: true,
-                    providerOrderId: true,
-                    providerPaymentId: true
-                }
-            }
+              is: {
+                status: input.paymentStatus,
+              },
+            },
+          }
+        : {}),
+    },
+
+    select: {
+      id: true,
+      reference: true,
+      status: true,
+      createdAt: true,
+      cancelledAt: true,
+
+      accessUrl: true,
+      accessInstructions: true,
+
+      googleCalendarEventId: true,
+      googleCalendarEventUrl: true,
+
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
         },
+      },
 
-        orderBy: [
-            { createdAt: "desc" },
-            { id: "desc" }
-        ],
+      program: {
+        select: {
+          id: true,
+          title: true,
+          priceInr: true,
+          durationMins: true,
+        },
+      },
 
-        skip,
-        take: pageSize
-    });
+      availability: {
+        select: {
+          id: true,
+          startsAt: true,
+          endsAt: true,
+        },
+      },
+
+      payment: {
+        select: {
+          id: true,
+          amountInr: true,
+          status: true,
+          providerOrderId: true,
+          providerPaymentId: true,
+        },
+      },
+    },
+
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+
+    skip,
+    take: pageSize,
+  });
 }
 
 export async function countAdminBookings(input?: {
-    startDate?: Date;
-    endDate?: Date;
-    paymentStatus?: PaymentStatus;
-    noPayment?: boolean;
+  startDate?: Date;
+  endDate?: Date;
+  paymentStatus?: PaymentStatus;
+  noPayment?: boolean;
 }) {
-    return prisma.booking.count({
-        where: {
-            ...(input?.startDate || input?.endDate
-                ? {
-                    availability: {
-                        startsAt: {
-                            ...(input?.startDate
-                                ? { gte: input.startDate }
-                                : {}),
-                            ...(input?.endDate
-                                ? { lt: input.endDate }
-                                : {})
-                        }
-                    }
-                }
-                : {}),
+  return prisma.booking.count({
+    where: {
+      ...(input?.startDate || input?.endDate
+        ? {
+            availability: {
+              startsAt: {
+                ...(input?.startDate ? { gte: input.startDate } : {}),
+                ...(input?.endDate ? { lt: input.endDate } : {}),
+              },
+            },
+          }
+        : {}),
 
-            ...(input?.paymentStatus
-                ? {
-                    payment: {
-                        is: {
-                            status: input.paymentStatus
-                        }
-                    }
-                }
-                : {}),
+      ...(input?.paymentStatus
+        ? {
+            payment: {
+              is: {
+                status: input.paymentStatus,
+              },
+            },
+          }
+        : {}),
 
-            ...(input?.noPayment
-                ? { payment: { is: null } }
-                : {})
-        }
-    });
+      ...(input?.noPayment ? { payment: { is: null } } : {}),
+    },
+  });
 }

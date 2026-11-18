@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 
 type Recording = {
   id: string;
@@ -74,43 +75,51 @@ export default function PaidRecordings() {
         return;
       }
 
-      if (!data.purchaseId) {
-        throw new Error("Demo order was not created.");
+      if (!data.purchaseId || !data.orderId || !data.keyId) {
+        throw new Error("Razorpay order was not created.");
       }
 
-      const confirmed = window.confirm(
-        `DEMO CHECKOUT ONLY\n\n` +
-          `Session: ${session.title}\n` +
-          `Amount: ₹${data.amountInr}\n\n` +
-          `No real money will be charged.\n` +
-          `Confirm this test purchase?`,
-      );
-
-      if (!confirmed) return;
-
-      const confirmation = await fetch("/api/recorded-sessions/demo-confirm", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          purchaseId: data.purchaseId,
-        }),
+      const payment = await openRazorpayCheckout({
+        keyId: data.keyId,
+        orderId: data.orderId,
+        amountInr: data.amountInr,
+        name: "DeepakCoach",
+        description: session.title,
       });
+
+      if (!payment) {
+        setError(
+          "Checkout was closed or payment failed. No course access has been granted.",
+        );
+        return;
+      }
+
+      const confirmation = await fetch(
+        "/api/recorded-sessions/verify-payment",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            purchaseId: data.purchaseId,
+            paymentId: payment.razorpay_payment_id,
+            signature: payment.razorpay_signature,
+          }),
+        },
+      );
 
       const result = await confirmation.json();
 
       if (!confirmation.ok) {
-        throw new Error(result.error || "Demo confirmation failed.");
+        throw new Error(result.error || "Payment confirmation pending");
       }
 
       router.push(`/paid-sessions/${session.slug}`);
       router.refresh();
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Could not complete demo purchase.",
+        err instanceof Error ? err.message : "Could not complete purchase.",
       );
     } finally {
       setBusyId(null);

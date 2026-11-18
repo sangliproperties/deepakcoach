@@ -12,12 +12,11 @@ import {
   rescheduleDatabaseBooking,
   setDatabasePaymentOrder,
   syncCancelledBookingCalendar,
-  syncRescheduledBookingCalendar
+  syncRescheduledBookingCalendar,
 } from "@/lib/booking-store";
 
 import { jsonError } from "@/lib/http";
-import { demoPaymentProvider } from "@/lib/payment";
-
+import { createRazorpayOrder, publicRazorpayKey } from "@/lib/razorpay";
 
 function serializeBooking(booking: any) {
   return {
@@ -28,8 +27,7 @@ function serializeBooking(booking: any) {
     availabilityId: booking.availabilityId,
     status: booking.status,
 
-    paymentStatus:
-      booking.payment?.status ?? undefined,
+    paymentStatus: booking.payment?.status ?? undefined,
 
     createdAt:
       booking.createdAt instanceof Date
@@ -42,29 +40,21 @@ function serializeBooking(booking: any) {
         : booking.cancelledAt
       : undefined,
 
-    rescheduledFrom:
-      booking.rescheduledFromId ?? undefined,
+    rescheduledFrom: booking.rescheduledFromId ?? undefined,
 
-    rescheduleCount:
-      booking.rescheduleCount,
+    rescheduleCount: booking.rescheduleCount,
 
-    accessUrl:
-      booking.accessUrl ?? undefined,
+    accessUrl: booking.accessUrl ?? undefined,
 
-    accessInstructions:
-      booking.accessInstructions ?? undefined
+    accessInstructions: booking.accessInstructions ?? undefined,
   };
 }
-
 
 export async function GET() {
   const user = await getCurrentUser();
 
   if (!user) {
-    return jsonError(
-      "Sign in required.",
-      401
-    );
+    return jsonError("Sign in required.", 401);
   }
 
   const bookings =
@@ -73,165 +63,131 @@ export async function GET() {
       : await listDatabaseBookings(user.id);
 
   return Response.json({
-    bookings: bookings.map(serializeBooking)
+    bookings: bookings.map(serializeBooking),
   });
 }
-
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
 
   if (!user) {
-    return jsonError(
-      "Sign in required.",
-      401
-    );
+    return jsonError("Sign in required.", 401);
+  }
+
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Invalid request body.", 400);
   }
 
   const parsed = z
     .object({
-      programId: z.string(),
-      availabilityId: z.string()
+      programId: z.string().min(1),
+      availabilityId: z.string().min(1),
     })
-    .safeParse(await request.json());
+    .safeParse(body);
 
   if (!parsed.success) {
-    return jsonError(
-      "Choose a valid offering and time."
-    );
+    return jsonError("Choose a valid offering and time.", 400);
   }
 
-  const result =
-    await createDatabaseBooking({
-      userId: user.id,
-      programId: parsed.data.programId,
-      availabilityId:
-        parsed.data.availabilityId
-    });
+  const result = await createDatabaseBooking({
+    userId: user.id,
+    programId: parsed.data.programId,
+    availabilityId: parsed.data.availabilityId,
+  });
 
   if ("error" in result) {
-    return jsonError(
-      String(result.error),
-      409
-    );
+    return jsonError(String(result.error), 409);
   }
 
-  if (
-    result.booking.status ===
-    "CONFIRMED"
-  ) {
+  if (result.booking.status === "CONFIRMED") {
     try {
-      await ensureBookingMeeting(
-        result.booking.id
-      );
+      await ensureBookingMeeting(result.booking.id);
     } catch (error) {
-      console.error(
-        "Google Meet creation failed:",
-        error
+      console.error("Google Meet creation failed:", error);
+    }
+  }
+
+  let payment = await getDatabasePaymentForBooking(result.booking.id);
+
+  if (payment) {
+    try {
+      const order = await createRazorpayOrder(
+        payment.amountInr,
+        result.booking.reference,
+      );
+
+      // Razorpay returns order.id, not order.orderId.
+      payment = await setDatabasePaymentOrder(result.booking.id, order.id);
+    } catch (error) {
+      console.error("Razorpay order creation failed:", error);
+
+      return jsonError(
+        "Payment order could not be created. Your booking remains pending; contact support before creating another booking.",
+        502,
       );
     }
   }
 
-  let payment =
-    await getDatabasePaymentForBooking(
-      result.booking.id
-    );
-
-  if (payment) {
-    const order =
-      await demoPaymentProvider.createOrder({
-        amountInr: payment.amountInr,
-        receipt: result.booking.reference
-      });
-
-    payment =
-      await setDatabasePaymentOrder(
-        result.booking.id,
-        order.orderId
-      );
-  }
-
-  const refreshedBooking =
-    await getDatabaseBooking(
-      result.booking.id
-    );
+  const refreshedBooking = await getDatabaseBooking(result.booking.id);
 
   return Response.json(
     {
-      booking:
-        serializeBooking({
-          ...(refreshedBooking ||
-            result.booking),
-          payment
-        }),
-
+      booking: serializeBooking({
+        ...(refreshedBooking || result.booking),
+        payment,
+      }),
       payment: payment
         ? {
-          orderId:
-            payment.providerOrderId,
-          amountInr:
-            payment.amountInr
-        }
-        : undefined
+            orderId: payment.providerOrderId,
+            amountInr: payment.amountInr,
+            keyId: publicRazorpayKey(),
+          }
+        : undefined,
     },
-    {
-      status: 201
-    }
+    { status: 201 },
   );
 }
-
 
 export async function PATCH(request: Request) {
   const user = await getCurrentUser();
 
   if (!user) {
-    return jsonError(
-      "Sign in required.",
-      401
-    );
+    return jsonError("Sign in required.", 401);
   }
 
   const parsed = z
     .object({
       bookingId: z.string(),
 
-      action: z.enum([
-        "cancel",
-        "reschedule"
-      ]),
+      action: z.enum(["cancel", "reschedule"]),
 
-      availabilityId:
-        z.string().optional()
+      availabilityId: z.string().optional(),
     })
     .safeParse(await request.json());
 
   if (!parsed.success) {
-    return jsonError(
-      "Provide a valid booking action."
-    );
+    return jsonError("Provide a valid booking action.");
   }
 
-  const isAdmin =
-    user.role === "ADMIN";
+  const isAdmin = user.role === "ADMIN";
 
   const result =
     parsed.data.action === "cancel"
-      ? await cancelDatabaseBooking(
-        parsed.data.bookingId,
-        user.id,
-        isAdmin
-      )
+      ? await cancelDatabaseBooking(parsed.data.bookingId, user.id, isAdmin)
       : parsed.data.availabilityId
         ? await rescheduleDatabaseBooking(
-          parsed.data.bookingId,
-          user.id,
-          parsed.data.availabilityId,
-          isAdmin
-        )
+            parsed.data.bookingId,
+            user.id,
+            parsed.data.availabilityId,
+            isAdmin,
+          )
         : {
-          error:
-            "INVALID_RESCHEDULE" as const
-        };
+            error: "INVALID_RESCHEDULE" as const,
+          };
 
   if ("error" in result && result.error) {
     const messages: Record<string, string> = {
@@ -241,54 +197,36 @@ export async function PATCH(request: Request) {
       RESCHEDULE_LIMIT_REACHED:
         "This booking has reached its rescheduling limit.",
 
-      SLOT_ALREADY_BOOKED:
-        "That time was just claimed by someone else.",
+      SLOT_ALREADY_BOOKED: "That time was just claimed by someone else.",
 
-      INVALID_RESCHEDULE:
-        "Choose an available replacement time.",
+      INVALID_RESCHEDULE: "Choose an available replacement time.",
 
-      NOT_FOUND:
-        "Booking not found.",
+      NOT_FOUND: "Booking not found.",
 
-      SLOT_UNAVAILABLE:
-        "That time is no longer available."
+      SLOT_UNAVAILABLE: "That time is no longer available.",
     };
 
     const errorCode = String(result.error);
 
     return jsonError(
-      messages[errorCode] ||
-      "Booking could not be updated.",
-      409
+      messages[errorCode] || "Booking could not be updated.",
+      409,
     );
   }
 
   try {
-    if (
-      parsed.data.action === "cancel"
-    ) {
-      await syncCancelledBookingCalendar(
-        result.booking.id
-      );
+    if (parsed.data.action === "cancel") {
+      await syncCancelledBookingCalendar(result.booking.id);
     }
 
-    if (
-      parsed.data.action ===
-      "reschedule"
-    ) {
-      await syncRescheduledBookingCalendar(
-        result.booking.id
-      );
+    if (parsed.data.action === "reschedule") {
+      await syncRescheduledBookingCalendar(result.booking.id);
     }
   } catch (error) {
-    console.error(
-      "Google Calendar synchronization failed:",
-      error
-    );
+    console.error("Google Calendar synchronization failed:", error);
   }
 
   return Response.json({
-    booking:
-      serializeBooking(result.booking)
+    booking: serializeBooking(result.booking),
   });
 }
